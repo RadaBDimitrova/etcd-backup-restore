@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/gardener/etcd-backup-restore/pkg/compressor"
+	"github.com/gardener/etcd-backup-restore/pkg/encryptor"
 	"github.com/gardener/etcd-backup-restore/pkg/snapshot/snapshotter"
 	"github.com/gardener/etcd-backup-restore/pkg/snapstore"
 	brtypes "github.com/gardener/etcd-backup-restore/pkg/types"
@@ -105,8 +106,9 @@ func runSnapshotter(logger *logrus.Entry, _ time.Duration, endpoints []string, s
 	snapshotterConfig.MaxBackups = 1
 
 	healthConfig := brtypes.NewHealthConfig()
+	encryptionConfig := encryptor.NewEncryptorConfig()
 
-	ssr, err := snapshotter.NewSnapshotter(logger, snapshotterConfig, store, etcdConnectionConfig, compressionConfig, healthConfig, snapstoreConfig)
+	ssr, err := snapshotter.NewSnapshotter(logger, snapshotterConfig, store, etcdConnectionConfig, compressionConfig, encryptionConfig, healthConfig, snapstoreConfig)
 	if err != nil {
 		return err
 	}

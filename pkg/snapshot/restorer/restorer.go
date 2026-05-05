@@ -21,6 +21,7 @@ import (
 	"time"
 
 	"github.com/gardener/etcd-backup-restore/pkg/compressor"
+	"github.com/gardener/etcd-backup-restore/pkg/encryptor"
 	"github.com/gardener/etcd-backup-restore/pkg/etcdutil"
 	"github.com/gardener/etcd-backup-restore/pkg/etcdutil/client"
 	"github.com/gardener/etcd-backup-restore/pkg/member"
@@ -44,9 +45,10 @@ const (
 
 // Restorer is a struct for etcd data directory restorer
 type Restorer struct {
-	logger    *logrus.Entry
-	zapLogger *zap.Logger
-	store     brtypes.SnapStore
+	logger           *logrus.Entry
+	zapLogger        *zap.Logger
+	store            brtypes.SnapStore
+	encryptionConfig *encryptor.EncryptionConfig
 }
 
 // NewRestorer returns the restorer object.
@@ -75,6 +77,9 @@ func (r *Restorer) RestoreAndStopEtcd(ro brtypes.RestoreOptions, m member.Contro
 
 // Restore restores the etcd data directory as per specified restore options but returns the ETCD server that it statrted.
 func (r *Restorer) Restore(ro brtypes.RestoreOptions, m member.Control) (*miscellaneous.EmbeddedEtcd, error) {
+	// Store encryption config for use when reading snapshots
+	r.encryptionConfig = ro.EncryptionConfig
+
 	r.logger.Infof("Creating temporary directory %s for persisting full and delta snapshots locally.", ro.Config.TempSnapshotsDir)
 	err := os.MkdirAll(ro.Config.TempSnapshotsDir, 0700)
 	if err != nil {
@@ -153,6 +158,23 @@ func (r *Restorer) restoreFromBaseSnapshot(ro brtypes.RestoreOptions) error {
 			r.logger.Errorf("failed to close the base snapshot reader: %v", err)
 		}
 	}()
+
+	// Decrypt the snapshot if encryption is enabled
+	if ro.EncryptionConfig != nil && ro.EncryptionConfig.Enabled() {
+		encryptionKey, err := ro.EncryptionConfig.GetKey()
+		if err != nil {
+			return fmt.Errorf("failed to get encryption key: %w", err)
+		}
+		transformer, err := encryptor.NewTransformer(encryptionKey)
+		if err != nil {
+			return fmt.Errorf("failed to create decryptor: %w", err)
+		}
+		rc, err = transformer.TransformFromStorage(rc)
+		if err != nil {
+			return fmt.Errorf("failed to decrypt base snapshot: %w", err)
+		}
+		r.logger.Info("Successfully decrypted base snapshot data.")
+	}
 
 	// Decompress the snapshot if necessary
 	isCompressed, compressionPolicy, err := compressor.IsSnapshotCompressed(ro.BaseSnapshot.CompressionSuffix)
@@ -617,6 +639,23 @@ func getNormalizedSnapshotReadCloser(rc io.ReadCloser, snap *brtypes.Snapshot) (
 
 func (r *Restorer) readSnapshotContentsFromReadCloser(rc io.ReadCloser, snap *brtypes.Snapshot) ([]byte, error) {
 	startTime := time.Now()
+
+	// Decrypt the snapshot if encryption is enabled
+	if r.encryptionConfig != nil && r.encryptionConfig.Enabled() {
+		encryptionKey, err := r.encryptionConfig.GetKey()
+		if err != nil {
+			return nil, fmt.Errorf("failed to get encryption key: %v", err)
+		}
+		transformer, err := encryptor.NewTransformer(encryptionKey)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create decryptor: %v", err)
+		}
+		rc, err = transformer.TransformFromStorage(rc)
+		if err != nil {
+			return nil, fmt.Errorf("failed to decrypt delta snapshot %s: %v", snap.SnapName, err)
+		}
+		r.logger.Debugf("Successfully decrypted delta snapshot %s", snap.SnapName)
+	}
 
 	rc, wasCompressed, compressionPolicy, err := getNormalizedSnapshotReadCloser(rc, snap)
 	if err != nil {

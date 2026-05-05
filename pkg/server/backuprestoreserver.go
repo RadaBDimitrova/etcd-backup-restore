@@ -103,6 +103,7 @@ func (b *BackupRestoreServer) Run(ctx context.Context) error {
 		ClusterURLs:         clusterURLsMap,
 		OriginalClusterSize: initialClusterSize,
 		PeerURLs:            peerURLs,
+		EncryptionConfig:    b.config.EncryptionConfig,
 	}
 
 	if b.config.SnapstoreConfig == nil || len(b.config.SnapstoreConfig.Provider) == 0 {
@@ -238,7 +239,7 @@ func (b *BackupRestoreServer) runServer(ctx context.Context, restoreOpts *brtype
 					if err != nil {
 						b.logger.Fatalf("failed to create secondary snapstore from configured storage provider: %v", err)
 					}
-					backupssr, err := snapshotter.NewSnapshotter(b.logger, b.config.SnapshotterConfig, ss, b.config.EtcdConnectionConfig, b.config.CompressionConfig, b.config.HealthConfig, b.config.SecondarySnapstoreConfig.StoreConfig)
+					backupssr, err := snapshotter.NewSnapshotter(b.logger, b.config.SnapshotterConfig, ss, b.config.EtcdConnectionConfig, b.config.CompressionConfig, b.config.EncryptionConfig, b.config.HealthConfig, b.config.SecondarySnapstoreConfig.StoreConfig)
 					if err != nil {
 						b.logger.Fatalf("failed to create snapshot backup copier: %v", err)
 					}
@@ -252,7 +253,7 @@ func (b *BackupRestoreServer) runServer(ctx context.Context, restoreOpts *brtype
 
 				// Get the new snapshotter object
 				b.logger.Infof("Creating snapshotter...")
-				ssr, err = snapshotter.NewSnapshotter(b.logger, b.config.SnapshotterConfig, ss, b.config.EtcdConnectionConfig, b.config.CompressionConfig, b.config.HealthConfig, b.config.SnapstoreConfig)
+				ssr, err = snapshotter.NewSnapshotter(b.logger, b.config.SnapshotterConfig, ss, b.config.EtcdConnectionConfig, b.config.CompressionConfig, b.config.EncryptionConfig, b.config.HealthConfig, b.config.SnapstoreConfig)
 				if err != nil {
 					b.logger.Fatalf("failed to create new Snapshotter object: %v", err)
 				}

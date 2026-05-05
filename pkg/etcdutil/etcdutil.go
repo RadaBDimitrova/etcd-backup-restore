@@ -16,6 +16,7 @@ import (
 	"time"
 
 	"github.com/gardener/etcd-backup-restore/pkg/compressor"
+	"github.com/gardener/etcd-backup-restore/pkg/encryptor"
 	"github.com/gardener/etcd-backup-restore/pkg/errors"
 	"github.com/gardener/etcd-backup-restore/pkg/etcdutil/client"
 	"github.com/gardener/etcd-backup-restore/pkg/metrics"
@@ -278,8 +279,9 @@ func GetEtcdEndPointsSorted(ctx context.Context, clientMaintenance client.Mainte
 //  1. takes the full snapshot of etcd database
 //  2. verify the full snapshot's integrity check
 //  3. compress the full snapshot(if compression is enabled)
-//  4. finally, save the full snapshot to object store(if configured).
-func TakeAndSaveFullSnapshot(ctx context.Context, client client.MaintenanceCloser, store brtypes.SnapStore, tempDir string, lastRevision int64, cc *compressor.CompressionConfig, suffix string, isFinal bool, logger *logrus.Entry) (*brtypes.Snapshot, error) {
+//  4. encrypt the full snapshot(if encryption is enabled)
+//  5. finally, save the full snapshot to object store(if configured).
+func TakeAndSaveFullSnapshot(ctx context.Context, client client.MaintenanceCloser, store brtypes.SnapStore, tempDir string, lastRevision int64, cc *compressor.CompressionConfig, ec *encryptor.EncryptionConfig, suffix string, isFinal bool, logger *logrus.Entry) (*brtypes.Snapshot, error) {
 	startTime := time.Now()
 	rc, err := client.Snapshot(ctx)
 	if err != nil {
@@ -325,6 +327,23 @@ func TakeAndSaveFullSnapshot(ctx context.Context, client client.MaintenanceClose
 	}
 
 	logger.Infof("Successfully opened snapshot reader on etcd")
+
+	// encrypt snapshot data if encryption is enabled.
+	if ec.Enabled() {
+		encryptionKey, err := ec.GetKey()
+		if err != nil {
+			return nil, fmt.Errorf("failed to get encryption key: %v", err)
+		}
+		transformer, err := encryptor.NewTransformer(encryptionKey)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create encryptor: %v", err)
+		}
+		snapshotData, err = transformer.TransformToStorage(snapshotData)
+		if err != nil {
+			return nil, fmt.Errorf("failed to encrypt snapshot data: %v", err)
+		}
+		logger.Info("snapshot data has been successfully encrypted.")
+	}
 
 	// save the snapshot to the store.
 	snapshot, err := saveSnapshotToStore(store, snapshotData, startTime, brtypes.SnapshotKindFull, lastRevision, suffix, isFinal, logger)

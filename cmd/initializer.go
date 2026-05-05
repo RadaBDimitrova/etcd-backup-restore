@@ -58,9 +58,10 @@ func NewInitializeCommand(_ context.Context) *cobra.Command {
 			}
 
 			restoreOptions := &brtypes.RestoreOptions{
-				Config:      opts.restorerOptions.restorationConfig,
-				ClusterURLs: clusterUrlsMap,
-				PeerURLs:    peerUrls,
+				Config:           opts.restorerOptions.restorationConfig,
+				ClusterURLs:      clusterUrlsMap,
+				PeerURLs:         peerUrls,
+				EncryptionConfig: opts.restorerOptions.encryptionConfig,
 			}
 
 			etcdInitializer, err := initializer.NewInitializer(restoreOptions, opts.restorerOptions.snapstoreConfig, opts.etcdConnectionConfig, logger)

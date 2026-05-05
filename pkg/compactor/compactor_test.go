@@ -83,7 +83,7 @@ var _ = Describe("Running Compactor", func() {
 			tempRestorationSnapshotsDir, err := os.MkdirTemp(testSuiteDir, "temp-snapshots-")
 			Expect(err).ShouldNot(HaveOccurred())
 
-			cptr = compactor.NewCompactor(store, logger, nil)
+			cptr = compactor.NewCompactor(store, logger, nil, nil)
 			restoreOpts = &brtypes.RestoreOptions{
 				Config: &brtypes.RestorationConfig{
 					InitialCluster:           restoreCluster,

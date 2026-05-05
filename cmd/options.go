@@ -10,6 +10,7 @@ import (
 	"os"
 
 	"github.com/gardener/etcd-backup-restore/pkg/compressor"
+	"github.com/gardener/etcd-backup-restore/pkg/encryptor"
 	"github.com/gardener/etcd-backup-restore/pkg/initializer/validator"
 	"github.com/gardener/etcd-backup-restore/pkg/server"
 	"github.com/gardener/etcd-backup-restore/pkg/snapshot/snapshotter"
@@ -135,6 +136,7 @@ func newCompactOptions() *compactOptions {
 		restorerOptions: &restorerOptions{
 			restorationConfig: brtypes.NewRestorationConfig(),
 			snapstoreConfig:   snapstore.NewSnapstoreConfig(),
+			encryptionConfig:  encryptor.NewEncryptorConfig(),
 		},
 		compactorConfig: brtypes.NewCompactorConfig(),
 	}
@@ -145,16 +147,21 @@ func (c *compactOptions) addFlags(fs *flag.FlagSet) {
 	c.restorationConfig.AddFlags(fs)
 	c.snapstoreConfig.AddFlags(fs)
 	c.compactorConfig.AddFlags(fs)
+	c.encryptionConfig.AddFlags(fs)
 }
 
 // Validate validates the config.
 func (c *compactOptions) validate() error {
-	return c.compactorConfig.Validate()
+	if err := c.compactorConfig.Validate(); err != nil {
+		return err
+	}
+	return c.encryptionConfig.Validate()
 }
 
 type restorerOptions struct {
 	restorationConfig *brtypes.RestorationConfig
 	snapstoreConfig   *brtypes.SnapstoreConfig
+	encryptionConfig  *encryptor.EncryptionConfig
 }
 
 // newRestorerOptions returns the validation config.
@@ -162,6 +169,7 @@ func newRestorerOptions() *restorerOptions {
 	return &restorerOptions{
 		restorationConfig: brtypes.NewRestorationConfig(),
 		snapstoreConfig:   snapstore.NewSnapstoreConfig(),
+		encryptionConfig:  encryptor.NewEncryptorConfig(),
 	}
 }
 
@@ -169,6 +177,7 @@ func newRestorerOptions() *restorerOptions {
 func (c *restorerOptions) addFlags(fs *flag.FlagSet) {
 	c.restorationConfig.AddFlags(fs)
 	c.snapstoreConfig.AddFlags(fs)
+	c.encryptionConfig.AddFlags(fs)
 }
 
 // Validate validates the config.
@@ -176,7 +185,9 @@ func (c *restorerOptions) validate() error {
 	if err := c.snapstoreConfig.Validate(); err != nil {
 		return err
 	}
-
+	if err := c.encryptionConfig.Validate(); err != nil {
+		return err
+	}
 	return c.restorationConfig.Validate()
 }
 
@@ -209,6 +220,7 @@ func (c *validatorOptions) validate() error {
 type snapshotterOptions struct {
 	etcdConnectionConfig     *brtypes.EtcdConnectionConfig
 	compressionConfig        *compressor.CompressionConfig
+	encryptionConfig         *encryptor.EncryptionConfig
 	snapstoreConfig          *brtypes.SnapstoreConfig
 	snapshotterConfig        *brtypes.SnapshotterConfig
 	exponentialBackoffConfig *brtypes.ExponentialBackoffConfig
@@ -222,6 +234,7 @@ func newSnapshotterOptions() *snapshotterOptions {
 		snapstoreConfig:          snapstore.NewSnapstoreConfig(),
 		snapshotterConfig:        snapshotter.NewSnapshotterConfig(),
 		compressionConfig:        compressor.NewCompressorConfig(),
+		encryptionConfig:         encryptor.NewEncryptorConfig(),
 		exponentialBackoffConfig: brtypes.NewExponentialBackOffConfig(),
 		defragmentationSchedule:  "0 0 */3 * *",
 	}
@@ -233,6 +246,7 @@ func (c *snapshotterOptions) addFlags(fs *flag.FlagSet) {
 	c.snapstoreConfig.AddFlags(fs)
 	c.snapshotterConfig.AddFlags(fs)
 	c.compressionConfig.AddFlags(fs)
+	c.encryptionConfig.AddFlags(fs)
 	c.exponentialBackoffConfig.AddFlags(fs)
 
 	// Miscellaneous
@@ -250,6 +264,10 @@ func (c *snapshotterOptions) validate() error {
 	}
 
 	if err := c.compressionConfig.Validate(); err != nil {
+		return err
+	}
+
+	if err := c.encryptionConfig.Validate(); err != nil {
 		return err
 	}
 

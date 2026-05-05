@@ -59,10 +59,11 @@ func BuildRestoreOptionsAndStore(opts *restorerOptions) (*brtypes.RestoreOptions
 	}
 
 	return &brtypes.RestoreOptions{
-		Config:        opts.restorationConfig,
-		BaseSnapshot:  baseSnap,
-		DeltaSnapList: deltaSnapList,
-		ClusterURLs:   clusterUrlsMap,
-		PeerURLs:      peerUrls,
+		Config:           opts.restorationConfig,
+		BaseSnapshot:     baseSnap,
+		DeltaSnapList:    deltaSnapList,
+		ClusterURLs:      clusterUrlsMap,
+		PeerURLs:         peerUrls,
+		EncryptionConfig: opts.encryptionConfig,
 	}, store, nil
 }

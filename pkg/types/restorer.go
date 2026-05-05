@@ -10,6 +10,7 @@ import (
 	"path"
 	"time"
 
+	"github.com/gardener/etcd-backup-restore/pkg/encryptor"
 	"github.com/gardener/etcd-backup-restore/pkg/etcdutil/client"
 
 	flag "github.com/spf13/pflag"
@@ -45,6 +46,8 @@ type RestoreOptions struct {
 	DeltaSnapList    SnapList
 	// OriginalClusterSize indicates the actual cluster size from the ETCD config
 	OriginalClusterSize int
+	// EncryptionConfig holds the encryption configuration for decrypting snapshots
+	EncryptionConfig *encryptor.EncryptionConfig
 }
 
 // RestorationConfig holds the restoration configuration.
@@ -209,6 +212,11 @@ func (in *RestoreOptions) DeepCopyInto(out *RestoreOptions) {
 	}
 	if in.NewClientFactory != nil {
 		out.NewClientFactory = DeepCopyNewClientFactory(in.NewClientFactory)
+	}
+	if in.EncryptionConfig != nil {
+		out.EncryptionConfig = &encryptor.EncryptionConfig{
+			KeyFile: in.EncryptionConfig.KeyFile,
+		}
 	}
 }
 

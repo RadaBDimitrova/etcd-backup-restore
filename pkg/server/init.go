@@ -9,6 +9,7 @@ import (
 	"os"
 
 	"github.com/gardener/etcd-backup-restore/pkg/compressor"
+	"github.com/gardener/etcd-backup-restore/pkg/encryptor"
 	"github.com/gardener/etcd-backup-restore/pkg/snapshot/snapshotter"
 	"github.com/gardener/etcd-backup-restore/pkg/snapstore"
 	brtypes "github.com/gardener/etcd-backup-restore/pkg/types"
@@ -26,6 +27,7 @@ func NewBackupRestoreComponentConfig() *BackupRestoreComponentConfig {
 		SnapstoreConfig:          snapstore.NewSnapstoreConfig(),
 		SecondarySnapstoreConfig: snapstore.NewSecondarySnapstoreConfig(),
 		CompressionConfig:        compressor.NewCompressorConfig(),
+		EncryptionConfig:         encryptor.NewEncryptorConfig(),
 		RestorationConfig:        brtypes.NewRestorationConfig(),
 		DefragmentationSchedule:  defaultDefragmentationSchedule,
 		HealthConfig:             brtypes.NewHealthConfig(),
@@ -43,6 +45,7 @@ func (c *BackupRestoreComponentConfig) AddFlags(fs *flag.FlagSet) {
 	c.SnapstoreConfig.AddFlags(fs)
 	c.RestorationConfig.AddFlags(fs)
 	c.CompressionConfig.AddFlags(fs)
+	c.EncryptionConfig.AddFlags(fs)
 	c.HealthConfig.AddFlags(fs)
 	c.LeaderElectionConfig.AddFlags(fs)
 	c.ExponentialBackoffConfig.AddFlags(fs)
@@ -70,6 +73,9 @@ func (c *BackupRestoreComponentConfig) Validate() error {
 		return err
 	}
 	if err := c.CompressionConfig.Validate(); err != nil {
+		return err
+	}
+	if err := c.EncryptionConfig.Validate(); err != nil {
 		return err
 	}
 	if err := c.HealthConfig.Validate(); err != nil {

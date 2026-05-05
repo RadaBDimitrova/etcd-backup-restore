@@ -14,6 +14,7 @@ import (
 	"path"
 
 	"github.com/gardener/etcd-backup-restore/pkg/compressor"
+	"github.com/gardener/etcd-backup-restore/pkg/encryptor"
 	"github.com/gardener/etcd-backup-restore/pkg/etcdutil"
 	"github.com/gardener/etcd-backup-restore/pkg/etcdutil/client"
 	mockfactory "github.com/gardener/etcd-backup-restore/pkg/mock/etcdutil/client"
@@ -38,10 +39,12 @@ var _ = Describe("EtcdUtil Tests", func() {
 		etcdDBPath        string
 		snapstoreConfig   *brtypes.SnapstoreConfig
 		compressionConfig *compressor.CompressionConfig
+		encryptionConfig  *encryptor.EncryptionConfig
 	)
 
 	BeforeEach(func() {
 		compressionConfig = compressor.NewCompressorConfig()
+		encryptionConfig = encryptor.NewEncryptorConfig()
 		snapstoreConfig = &brtypes.SnapstoreConfig{Provider: "Local", TempDir: outputDir}
 		store, err = snapstore.GetSnapstore(snapstoreConfig)
 		Expect(err).ShouldNot(HaveOccurred())
@@ -71,7 +74,7 @@ var _ = Describe("EtcdUtil Tests", func() {
 					return nil, fmt.Errorf("failed to take snapshot")
 				})
 
-				_, err = etcdutil.TakeAndSaveFullSnapshot(testCtx, clientMaintenance, store, snapstoreConfig.TempDir, dummyLastRevision, compressionConfig, compressor.UnCompressSnapshotExtension, false, logger)
+				_, err = etcdutil.TakeAndSaveFullSnapshot(testCtx, clientMaintenance, store, snapstoreConfig.TempDir, dummyLastRevision, compressionConfig, encryptionConfig, compressor.UnCompressSnapshotExtension, false, logger)
 				Expect(err).Should(HaveOccurred())
 			})
 		})
@@ -87,7 +90,7 @@ var _ = Describe("EtcdUtil Tests", func() {
 						return getEtcdDBData(etcdDBPath, true), nil
 					})
 
-					_, err = etcdutil.TakeAndSaveFullSnapshot(testCtx, client, store, snapstoreConfig.TempDir, dummyLastRevision, compressionConfig, compressor.GzipCompressionExtension, false, logger)
+					_, err = etcdutil.TakeAndSaveFullSnapshot(testCtx, client, store, snapstoreConfig.TempDir, dummyLastRevision, compressionConfig, encryptionConfig, compressor.GzipCompressionExtension, false, logger)
 					Expect(err).ShouldNot(HaveOccurred())
 				})
 			})
@@ -102,7 +105,7 @@ var _ = Describe("EtcdUtil Tests", func() {
 						return getEtcdDBData(etcdDBPath, true), nil
 					})
 
-					_, err = etcdutil.TakeAndSaveFullSnapshot(testCtx, client, store, snapstoreConfig.TempDir, dummyLastRevision, compressionConfig, compressor.UnCompressSnapshotExtension, false, logger)
+					_, err = etcdutil.TakeAndSaveFullSnapshot(testCtx, client, store, snapstoreConfig.TempDir, dummyLastRevision, compressionConfig, encryptionConfig, compressor.UnCompressSnapshotExtension, false, logger)
 					Expect(err).ShouldNot(HaveOccurred())
 				})
 			})
@@ -117,7 +120,7 @@ var _ = Describe("EtcdUtil Tests", func() {
 					return getEtcdDBData(etcdDBPath, false), nil
 				})
 
-				_, err = etcdutil.TakeAndSaveFullSnapshot(testCtx, client, store, snapstoreConfig.TempDir, dummyLastRevision, compressionConfig, compressor.UnCompressSnapshotExtension, false, logger)
+				_, err = etcdutil.TakeAndSaveFullSnapshot(testCtx, client, store, snapstoreConfig.TempDir, dummyLastRevision, compressionConfig, encryptionConfig, compressor.UnCompressSnapshotExtension, false, logger)
 				Expect(err).Should(HaveOccurred())
 			})
 		})
@@ -132,7 +135,7 @@ var _ = Describe("EtcdUtil Tests", func() {
 					return getCorruptedEtcdDBData(etcdDBPath, withCorruptSHA), nil
 				})
 
-				_, err = etcdutil.TakeAndSaveFullSnapshot(testCtx, client, store, snapstoreConfig.TempDir, dummyLastRevision, compressionConfig, compressor.UnCompressSnapshotExtension, false, logger)
+				_, err = etcdutil.TakeAndSaveFullSnapshot(testCtx, client, store, snapstoreConfig.TempDir, dummyLastRevision, compressionConfig, encryptionConfig, compressor.UnCompressSnapshotExtension, false, logger)
 				Expect(err).Should(HaveOccurred())
 			})
 		})
@@ -147,7 +150,7 @@ var _ = Describe("EtcdUtil Tests", func() {
 					return getCorruptedEtcdDBData(etcdDBPath, withCorruptSHA), nil
 				})
 
-				_, err = etcdutil.TakeAndSaveFullSnapshot(testCtx, client, store, snapstoreConfig.TempDir, dummyLastRevision, compressionConfig, compressor.UnCompressSnapshotExtension, false, logger)
+				_, err = etcdutil.TakeAndSaveFullSnapshot(testCtx, client, store, snapstoreConfig.TempDir, dummyLastRevision, compressionConfig, encryptionConfig, compressor.UnCompressSnapshotExtension, false, logger)
 				Expect(err).Should(HaveOccurred())
 			})
 		})

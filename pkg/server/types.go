@@ -6,6 +6,7 @@ package server
 
 import (
 	"github.com/gardener/etcd-backup-restore/pkg/compressor"
+	"github.com/gardener/etcd-backup-restore/pkg/encryptor"
 	brtypes "github.com/gardener/etcd-backup-restore/pkg/types"
 )
 
@@ -24,6 +25,7 @@ type BackupRestoreComponentConfig struct {
 	SnapstoreConfig          *brtypes.SnapstoreConfig          `json:"snapstoreConfig,omitempty"`
 	SecondarySnapstoreConfig *brtypes.SecondarySnapstoreConfig `json:"secondarySnapstoreConfig,omitempty"`
 	CompressionConfig        *compressor.CompressionConfig     `json:"compressionConfig,omitempty"`
+	EncryptionConfig         *encryptor.EncryptionConfig       `json:"encryptionConfig,omitempty"`
 	RestorationConfig        *brtypes.RestorationConfig        `json:"restorationConfig,omitempty"`
 	HealthConfig             *brtypes.HealthConfig             `json:"healthConfig,omitempty"`
 	LeaderElectionConfig     *brtypes.Config                   `json:"leaderElectionConfig,omitempty"`

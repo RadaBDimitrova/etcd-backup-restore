@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/gardener/etcd-backup-restore/pkg/compressor"
+	"github.com/gardener/etcd-backup-restore/pkg/encryptor"
 	"github.com/gardener/etcd-backup-restore/pkg/etcdutil"
 	"github.com/gardener/etcd-backup-restore/pkg/health/heartbeat"
 	"github.com/gardener/etcd-backup-restore/pkg/miscellaneous"
@@ -39,17 +40,19 @@ const (
 
 // Compactor holds the necessary details for compacting ETCD
 type Compactor struct {
-	logger       *logrus.Entry
-	store        brtypes.SnapStore
-	k8sClientset client.Client
+	logger           *logrus.Entry
+	store            brtypes.SnapStore
+	k8sClientset     client.Client
+	encryptionConfig *encryptor.EncryptionConfig
 }
 
 // NewCompactor creates compactor
-func NewCompactor(store brtypes.SnapStore, logger *logrus.Entry, clientSet client.Client) *Compactor {
+func NewCompactor(store brtypes.SnapStore, logger *logrus.Entry, clientSet client.Client, encryptionConfig *encryptor.EncryptionConfig) *Compactor {
 	return &Compactor{
-		logger:       logger,
-		store:        store,
-		k8sClientset: clientSet,
+		logger:           logger,
+		store:            store,
+		k8sClientset:     clientSet,
+		encryptionConfig: encryptionConfig,
 	}
 }
 
@@ -162,7 +165,7 @@ func (cp *Compactor) Compact(ctx context.Context, opts *brtypes.CompactOptions) 
 	isFinal := compactorRestoreOptions.BaseSnapshot.IsFinal
 
 	cc := &compressor.CompressionConfig{Enabled: isCompressed, CompressionPolicy: compressionPolicy}
-	snapshot, err := etcdutil.TakeAndSaveFullSnapshot(snapshotReqCtx, clientMaintenance, cp.store, opts.TempDir, etcdRevision, cc, suffix, isFinal, cp.logger)
+	snapshot, err := etcdutil.TakeAndSaveFullSnapshot(snapshotReqCtx, clientMaintenance, cp.store, opts.TempDir, etcdRevision, cc, cp.encryptionConfig, suffix, isFinal, cp.logger)
 	if err != nil {
 		return nil, err
 	}

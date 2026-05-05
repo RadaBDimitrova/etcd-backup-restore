@@ -18,6 +18,7 @@ import (
 	"time"
 
 	"github.com/gardener/etcd-backup-restore/pkg/compressor"
+	"github.com/gardener/etcd-backup-restore/pkg/encryptor"
 	"github.com/gardener/etcd-backup-restore/pkg/errors"
 	"github.com/gardener/etcd-backup-restore/pkg/etcdutil"
 	"github.com/gardener/etcd-backup-restore/pkg/health/heartbeat"
@@ -100,10 +101,11 @@ type Snapshotter struct {
 	lastEventRevision            int64
 	SnapshotterStateActive       bool
 	PrevFullSnapshotSucceeded    bool
+	encryptionConfig             *encryptor.EncryptionConfig
 }
 
 // NewSnapshotter returns the snapshotter object.
-func NewSnapshotter(logger *logrus.Entry, config *brtypes.SnapshotterConfig, store brtypes.SnapStore, etcdConnectionConfig *brtypes.EtcdConnectionConfig, compressionConfig *compressor.CompressionConfig, healthConfig *brtypes.HealthConfig, storeConfig *brtypes.SnapstoreConfig) (*Snapshotter, error) {
+func NewSnapshotter(logger *logrus.Entry, config *brtypes.SnapshotterConfig, store brtypes.SnapStore, etcdConnectionConfig *brtypes.EtcdConnectionConfig, compressionConfig *compressor.CompressionConfig, encryptionConfig *encryptor.EncryptionConfig, healthConfig *brtypes.HealthConfig, storeConfig *brtypes.SnapstoreConfig) (*Snapshotter, error) {
 	sdl, err := cron.ParseStandard(config.FullSnapshotSchedule)
 	if err != nil {
 		// Ideally this should be validated before.
@@ -145,6 +147,7 @@ func NewSnapshotter(logger *logrus.Entry, config *brtypes.SnapshotterConfig, sto
 		config:                    config,
 		etcdConnectionConfig:      etcdConnectionConfig,
 		compressionConfig:         compressionConfig,
+		encryptionConfig:          encryptionConfig,
 		HealthConfig:              healthConfig,
 		schedule:                  sdl,
 		PrevSnapshot:              prevSnapshot,
@@ -365,7 +368,7 @@ func (ssr *Snapshotter) takeFullSnapshot(isFinal bool) (*brtypes.Snapshot, error
 		}
 		defer clientMaintenance.Close()
 
-		s, err := etcdutil.TakeAndSaveFullSnapshot(ctx, clientMaintenance, ssr.store, ssr.snapstoreConfig.TempDir, lastRevision, ssr.compressionConfig, compressionSuffix, isFinal, ssr.logger)
+		s, err := etcdutil.TakeAndSaveFullSnapshot(ctx, clientMaintenance, ssr.store, ssr.snapstoreConfig.TempDir, lastRevision, ssr.compressionConfig, ssr.encryptionConfig, compressionSuffix, isFinal, ssr.logger)
 		if err != nil {
 			return nil, err
 		}
@@ -487,6 +490,23 @@ func (ssr *Snapshotter) TakeDeltaSnapshot() (*brtypes.Snapshot, error) {
 		if err != nil {
 			return nil, fmt.Errorf("unable to compress delta snapshot: %v", err)
 		}
+	}
+
+	// encryption of snapshot data if encryption is enabled.
+	if ssr.encryptionConfig.Enabled() {
+		encryptionKey, err := ssr.encryptionConfig.GetKey()
+		if err != nil {
+			return nil, fmt.Errorf("failed to get encryption key: %v", err)
+		}
+		transformer, err := encryptor.NewTransformer(encryptionKey)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create encryptor: %v", err)
+		}
+		rc, err = transformer.TransformToStorage(rc)
+		if err != nil {
+			return nil, fmt.Errorf("failed to encrypt snapshot data: %v", err)
+		}
+		ssr.logger.Info("snapshot data has been successfully encrypted.")
 	}
 	defer rc.Close()
 
