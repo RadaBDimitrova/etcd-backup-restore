@@ -208,12 +208,3 @@ func (r *decryptingReader) Read(p []byte) (int, error) {
 func (r *decryptingReader) Close() error {
 	return r.src.Close()
 }
-
-func isEncrypted(snapList []brtypes.Snapshot) bool {
-	for _, snap := range snapList {
-		if snap.IsEncrypted {
-			return true
-		}
-	}
-	return false
-}

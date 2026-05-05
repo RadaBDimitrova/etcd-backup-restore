@@ -494,15 +494,7 @@ func (ssr *Snapshotter) TakeDeltaSnapshot() (*brtypes.Snapshot, error) {
 
 	// encryption of snapshot data if encryption is enabled.
 	if ssr.encryptionConfig.Enabled() {
-		encryptionKey, err := ssr.encryptionConfig.GetKey()
-		if err != nil {
-			return nil, fmt.Errorf("failed to get encryption key: %v", err)
-		}
-		transformer, err := encryptor.NewTransformer(encryptionKey)
-		if err != nil {
-			return nil, fmt.Errorf("failed to create encryptor: %v", err)
-		}
-		rc, err = transformer.TransformToStorage(rc)
+		rc, err = encryptor.EncryptSnapshot(rc, ssr.encryptionConfig)
 		if err != nil {
 			return nil, fmt.Errorf("failed to encrypt snapshot data: %v", err)
 		}

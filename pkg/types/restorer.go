@@ -215,7 +215,7 @@ func (in *RestoreOptions) DeepCopyInto(out *RestoreOptions) {
 	}
 	if in.EncryptionConfig != nil {
 		out.EncryptionConfig = &encryptor.EncryptionConfig{
-			KeyFile: in.EncryptionConfig.KeyFile,
+			KeyringFile: in.EncryptionConfig.KeyringFile,
 		}
 	}
 }

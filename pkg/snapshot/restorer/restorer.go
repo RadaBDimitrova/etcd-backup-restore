@@ -161,15 +161,7 @@ func (r *Restorer) restoreFromBaseSnapshot(ro brtypes.RestoreOptions) error {
 
 	// Decrypt the snapshot if encryption is enabled
 	if ro.EncryptionConfig != nil && ro.EncryptionConfig.Enabled() {
-		encryptionKey, err := ro.EncryptionConfig.GetKey()
-		if err != nil {
-			return fmt.Errorf("failed to get encryption key: %w", err)
-		}
-		transformer, err := encryptor.NewTransformer(encryptionKey)
-		if err != nil {
-			return fmt.Errorf("failed to create decryptor: %w", err)
-		}
-		rc, err = transformer.TransformFromStorage(rc)
+		rc, err = encryptor.DecryptSnapshot(rc, ro.EncryptionConfig)
 		if err != nil {
 			return fmt.Errorf("failed to decrypt base snapshot: %w", err)
 		}
@@ -642,15 +634,8 @@ func (r *Restorer) readSnapshotContentsFromReadCloser(rc io.ReadCloser, snap *br
 
 	// Decrypt the snapshot if encryption is enabled
 	if r.encryptionConfig != nil && r.encryptionConfig.Enabled() {
-		encryptionKey, err := r.encryptionConfig.GetKey()
-		if err != nil {
-			return nil, fmt.Errorf("failed to get encryption key: %v", err)
-		}
-		transformer, err := encryptor.NewTransformer(encryptionKey)
-		if err != nil {
-			return nil, fmt.Errorf("failed to create decryptor: %v", err)
-		}
-		rc, err = transformer.TransformFromStorage(rc)
+		var err error
+		rc, err = encryptor.DecryptSnapshot(rc, r.encryptionConfig)
 		if err != nil {
 			return nil, fmt.Errorf("failed to decrypt delta snapshot %s: %v", snap.SnapName, err)
 		}

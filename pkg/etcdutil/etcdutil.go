@@ -330,15 +330,7 @@ func TakeAndSaveFullSnapshot(ctx context.Context, client client.MaintenanceClose
 
 	// encrypt snapshot data if encryption is enabled.
 	if ec.Enabled() {
-		encryptionKey, err := ec.GetKey()
-		if err != nil {
-			return nil, fmt.Errorf("failed to get encryption key: %v", err)
-		}
-		transformer, err := encryptor.NewTransformer(encryptionKey)
-		if err != nil {
-			return nil, fmt.Errorf("failed to create encryptor: %v", err)
-		}
-		snapshotData, err = transformer.TransformToStorage(snapshotData)
+		snapshotData, err = encryptor.EncryptSnapshot(snapshotData, ec)
 		if err != nil {
 			return nil, fmt.Errorf("failed to encrypt snapshot data: %v", err)
 		}
