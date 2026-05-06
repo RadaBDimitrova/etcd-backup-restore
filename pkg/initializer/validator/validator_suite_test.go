@@ -106,9 +106,9 @@ func runSnapshotter(logger *logrus.Entry, _ time.Duration, endpoints []string, s
 	snapshotterConfig.MaxBackups = 1
 
 	healthConfig := brtypes.NewHealthConfig()
-	encryptionConfig := encryptor.NewEncryptorConfig()
+	keyring := encryptor.NewKeyring()
 
-	ssr, err := snapshotter.NewSnapshotter(logger, snapshotterConfig, store, etcdConnectionConfig, compressionConfig, encryptionConfig, healthConfig, snapstoreConfig)
+	ssr, err := snapshotter.NewSnapshotter(logger, snapshotterConfig, store, etcdConnectionConfig, compressionConfig, keyring, healthConfig, snapstoreConfig)
 	if err != nil {
 		return err
 	}

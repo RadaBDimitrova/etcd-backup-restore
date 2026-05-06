@@ -97,6 +97,7 @@ type Snapshot struct {
 	SnapName               string    `json:"snapName"`
 	Prefix                 string    `json:"prefix"`            // Points to correct prefix of a snapshot in snapstore (Required for Backward Compatibility)
 	CompressionSuffix      string    `json:"compressionSuffix"` // CompressionSuffix depends on compression policy
+	EncryptionSuffix       string    `json:"encryptionSuffix"`  // EncryptionSuffix depends on encryption provider
 	StartRevision          int64     `json:"startRevision"`
 	LastRevision           int64     `json:"lastRevision"` // latest revision of snapshot
 	IsChunk                bool      `json:"isChunk"`
@@ -117,7 +118,7 @@ func (s *Snapshot) IsDeletable() bool {
 
 // GenerateSnapshotName prepares the snapshot name from metadata
 func (s *Snapshot) GenerateSnapshotName() {
-	s.SnapName = fmt.Sprintf("%s-%08d-%08d-%d%s%s", s.Kind, s.StartRevision, s.LastRevision, s.CreatedOn.Unix(), s.CompressionSuffix, s.finalSuffix())
+	s.SnapName = fmt.Sprintf("%s-%08d-%08d-%d%s%s%s", s.Kind, s.StartRevision, s.LastRevision, s.CreatedOn.Unix(), s.CompressionSuffix, s.EncryptionSuffix, s.finalSuffix())
 }
 
 // GenerateSnapshotDirectory prepares the snapshot directory name from metadata

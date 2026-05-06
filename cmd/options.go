@@ -56,9 +56,12 @@ func (o *serverOptions) addFlags(fs *flag.FlagSet) {
 	o.Config.AddFlags(fs)
 }
 
-func (o *serverOptions) complete() {
-	o.Config.Complete()
+func (o *serverOptions) complete() error {
+	if err := o.Config.Complete(); err != nil {
+		return err
+	}
 	o.Logger.SetLevel(logrus.Level(o.LogLevel))
+	return nil
 }
 
 func (o *serverOptions) loadConfigFromFile() error {
@@ -121,8 +124,8 @@ func (c *initializerOptions) validate() error {
 }
 
 // Complete completes the config.
-func (c *initializerOptions) complete() {
-	c.restorerOptions.complete()
+func (c *initializerOptions) complete() error {
+	return c.restorerOptions.complete()
 }
 
 type compactOptions struct {
@@ -136,7 +139,6 @@ func newCompactOptions() *compactOptions {
 		restorerOptions: &restorerOptions{
 			restorationConfig: brtypes.NewRestorationConfig(),
 			snapstoreConfig:   snapstore.NewSnapstoreConfig(),
-			encryptionConfig:  encryptor.NewEncryptorConfig(),
 		},
 		compactorConfig: brtypes.NewCompactorConfig(),
 	}
@@ -147,7 +149,7 @@ func (c *compactOptions) addFlags(fs *flag.FlagSet) {
 	c.restorationConfig.AddFlags(fs)
 	c.snapstoreConfig.AddFlags(fs)
 	c.compactorConfig.AddFlags(fs)
-	c.encryptionConfig.AddFlags(fs)
+	fs.StringVar(&c.encryptionConfigFile, "backup-encryption-config", c.encryptionConfigFile, "path to JSON file containing encryption configuration (keys for encrypting/decrypting backups)")
 }
 
 // Validate validates the config.
@@ -155,13 +157,14 @@ func (c *compactOptions) validate() error {
 	if err := c.compactorConfig.Validate(); err != nil {
 		return err
 	}
-	return c.encryptionConfig.Validate()
+	return nil
 }
 
 type restorerOptions struct {
-	restorationConfig *brtypes.RestorationConfig
-	snapstoreConfig   *brtypes.SnapstoreConfig
-	encryptionConfig  *encryptor.EncryptionConfig
+	restorationConfig    *brtypes.RestorationConfig
+	snapstoreConfig      *brtypes.SnapstoreConfig
+	keyring              *encryptor.Keyring
+	encryptionConfigFile string
 }
 
 // newRestorerOptions returns the validation config.
@@ -169,7 +172,6 @@ func newRestorerOptions() *restorerOptions {
 	return &restorerOptions{
 		restorationConfig: brtypes.NewRestorationConfig(),
 		snapstoreConfig:   snapstore.NewSnapstoreConfig(),
-		encryptionConfig:  encryptor.NewEncryptorConfig(),
 	}
 }
 
@@ -177,7 +179,7 @@ func newRestorerOptions() *restorerOptions {
 func (c *restorerOptions) addFlags(fs *flag.FlagSet) {
 	c.restorationConfig.AddFlags(fs)
 	c.snapstoreConfig.AddFlags(fs)
-	c.encryptionConfig.AddFlags(fs)
+	fs.StringVar(&c.encryptionConfigFile, "backup-encryption-config", c.encryptionConfigFile, "path to JSON file containing encryption configuration (keys for decrypting backups)")
 }
 
 // Validate validates the config.
@@ -185,15 +187,24 @@ func (c *restorerOptions) validate() error {
 	if err := c.snapstoreConfig.Validate(); err != nil {
 		return err
 	}
-	if err := c.encryptionConfig.Validate(); err != nil {
-		return err
-	}
 	return c.restorationConfig.Validate()
 }
 
 // complete completes the config.
-func (c *restorerOptions) complete() {
+func (c *restorerOptions) complete() error {
 	c.snapstoreConfig.Complete()
+	if c.encryptionConfigFile != "" {
+		config, err := encryptor.LoadEncryptionConfigFromFile(c.encryptionConfigFile)
+		if err != nil {
+			return err
+		}
+		keyring, err := encryptor.BuildKeyring(config)
+		if err != nil {
+			return err
+		}
+		c.keyring = keyring
+	}
+	return nil
 }
 
 type validatorOptions struct {
@@ -220,7 +231,8 @@ func (c *validatorOptions) validate() error {
 type snapshotterOptions struct {
 	etcdConnectionConfig     *brtypes.EtcdConnectionConfig
 	compressionConfig        *compressor.CompressionConfig
-	encryptionConfig         *encryptor.EncryptionConfig
+	keyring                  *encryptor.Keyring
+	encryptionConfigFile     string
 	snapstoreConfig          *brtypes.SnapstoreConfig
 	snapshotterConfig        *brtypes.SnapshotterConfig
 	exponentialBackoffConfig *brtypes.ExponentialBackoffConfig
@@ -234,7 +246,6 @@ func newSnapshotterOptions() *snapshotterOptions {
 		snapstoreConfig:          snapstore.NewSnapstoreConfig(),
 		snapshotterConfig:        snapshotter.NewSnapshotterConfig(),
 		compressionConfig:        compressor.NewCompressorConfig(),
-		encryptionConfig:         encryptor.NewEncryptorConfig(),
 		exponentialBackoffConfig: brtypes.NewExponentialBackOffConfig(),
 		defragmentationSchedule:  "0 0 */3 * *",
 	}
@@ -246,8 +257,8 @@ func (c *snapshotterOptions) addFlags(fs *flag.FlagSet) {
 	c.snapstoreConfig.AddFlags(fs)
 	c.snapshotterConfig.AddFlags(fs)
 	c.compressionConfig.AddFlags(fs)
-	c.encryptionConfig.AddFlags(fs)
 	c.exponentialBackoffConfig.AddFlags(fs)
+	fs.StringVar(&c.encryptionConfigFile, "backup-encryption-config", c.encryptionConfigFile, "path to JSON file containing encryption configuration (keys for encrypting backups)")
 
 	// Miscellaneous
 	fs.StringVar(&c.defragmentationSchedule, "defragmentation-schedule", c.defragmentationSchedule, "schedule to defragment etcd data directory")
@@ -267,10 +278,6 @@ func (c *snapshotterOptions) validate() error {
 		return err
 	}
 
-	if err := c.encryptionConfig.Validate(); err != nil {
-		return err
-	}
-
 	if err := c.exponentialBackoffConfig.Validate(); err != nil {
 		return err
 	}
@@ -278,8 +285,20 @@ func (c *snapshotterOptions) validate() error {
 }
 
 // complete completes the config.
-func (c *snapshotterOptions) complete() {
+func (c *snapshotterOptions) complete() error {
 	c.snapstoreConfig.Complete()
+	if c.encryptionConfigFile != "" {
+		config, err := encryptor.LoadEncryptionConfigFromFile(c.encryptionConfigFile)
+		if err != nil {
+			return err
+		}
+		keyring, err := encryptor.BuildKeyring(config)
+		if err != nil {
+			return err
+		}
+		c.keyring = keyring
+	}
+	return nil
 }
 
 type copierOptions struct {

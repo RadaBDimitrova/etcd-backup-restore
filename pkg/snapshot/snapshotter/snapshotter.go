@@ -101,11 +101,11 @@ type Snapshotter struct {
 	lastEventRevision            int64
 	SnapshotterStateActive       bool
 	PrevFullSnapshotSucceeded    bool
-	encryptionConfig             *encryptor.EncryptionConfig
+	keyring                      *encryptor.Keyring
 }
 
 // NewSnapshotter returns the snapshotter object.
-func NewSnapshotter(logger *logrus.Entry, config *brtypes.SnapshotterConfig, store brtypes.SnapStore, etcdConnectionConfig *brtypes.EtcdConnectionConfig, compressionConfig *compressor.CompressionConfig, encryptionConfig *encryptor.EncryptionConfig, healthConfig *brtypes.HealthConfig, storeConfig *brtypes.SnapstoreConfig) (*Snapshotter, error) {
+func NewSnapshotter(logger *logrus.Entry, config *brtypes.SnapshotterConfig, store brtypes.SnapStore, etcdConnectionConfig *brtypes.EtcdConnectionConfig, compressionConfig *compressor.CompressionConfig, keyring *encryptor.Keyring, healthConfig *brtypes.HealthConfig, storeConfig *brtypes.SnapstoreConfig) (*Snapshotter, error) {
 	sdl, err := cron.ParseStandard(config.FullSnapshotSchedule)
 	if err != nil {
 		// Ideally this should be validated before.
@@ -147,7 +147,7 @@ func NewSnapshotter(logger *logrus.Entry, config *brtypes.SnapshotterConfig, sto
 		config:                    config,
 		etcdConnectionConfig:      etcdConnectionConfig,
 		compressionConfig:         compressionConfig,
-		encryptionConfig:          encryptionConfig,
+		keyring:                   keyring,
 		HealthConfig:              healthConfig,
 		schedule:                  sdl,
 		PrevSnapshot:              prevSnapshot,
@@ -368,7 +368,7 @@ func (ssr *Snapshotter) takeFullSnapshot(isFinal bool) (*brtypes.Snapshot, error
 		}
 		defer clientMaintenance.Close()
 
-		s, err := etcdutil.TakeAndSaveFullSnapshot(ctx, clientMaintenance, ssr.store, ssr.snapstoreConfig.TempDir, lastRevision, ssr.compressionConfig, ssr.encryptionConfig, compressionSuffix, isFinal, ssr.logger)
+		s, err := etcdutil.TakeAndSaveFullSnapshot(ctx, clientMaintenance, ssr.store, ssr.snapstoreConfig.TempDir, lastRevision, ssr.compressionConfig, ssr.keyring, compressionSuffix, isFinal, ssr.logger)
 		if err != nil {
 			return nil, err
 		}
@@ -483,7 +483,7 @@ func (ssr *Snapshotter) TakeDeltaSnapshot() (*brtypes.Snapshot, error) {
 	rc := io.NopCloser(bytes.NewReader(ssr.events))
 
 	// if compression is enabled
-	//    then compress the snapshot.
+	// then compress the snapshot.
 	if ssr.compressionConfig.Enabled {
 		ssr.logger.Info("start the Compression of delta snapshot")
 		rc, err = compressor.CompressSnapshot(rc, ssr.compressionConfig.CompressionPolicy)
@@ -493,8 +493,8 @@ func (ssr *Snapshotter) TakeDeltaSnapshot() (*brtypes.Snapshot, error) {
 	}
 
 	// encryption of snapshot data if encryption is enabled.
-	if ssr.encryptionConfig.Enabled() {
-		rc, err = encryptor.EncryptSnapshot(rc, ssr.encryptionConfig)
+	if ssr.keyring.Enabled() {
+		rc, err = encryptor.EncryptSnapshot(rc, ssr.keyring)
 		if err != nil {
 			return nil, fmt.Errorf("failed to encrypt snapshot data: %v", err)
 		}

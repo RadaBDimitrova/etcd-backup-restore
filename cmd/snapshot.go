@@ -36,14 +36,17 @@ storing snapshots on various cloud storage providers as well as local disk locat
 				return
 			}
 
-			opts.complete()
+			if err := opts.complete(); err != nil {
+				logger.Fatalf("failed to complete the options: %v", err)
+				return
+			}
 
 			ss, err := snapstore.GetSnapstore(opts.snapstoreConfig)
 			if err != nil {
 				logger.Fatalf("Failed to create snapstore from configured storage provider: %v", err)
 			}
 
-			ssr, err := snapshotter.NewSnapshotter(logger, opts.snapshotterConfig, ss, opts.etcdConnectionConfig, opts.compressionConfig, opts.encryptionConfig, brtypes.NewHealthConfig(), opts.snapstoreConfig)
+			ssr, err := snapshotter.NewSnapshotter(logger, opts.snapshotterConfig, ss, opts.etcdConnectionConfig, opts.compressionConfig, opts.keyring, brtypes.NewHealthConfig(), opts.snapstoreConfig)
 			if err != nil {
 				logger.Fatalf("Failed to create snapshotter: %v", err)
 			}

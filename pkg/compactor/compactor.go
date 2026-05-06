@@ -40,19 +40,19 @@ const (
 
 // Compactor holds the necessary details for compacting ETCD
 type Compactor struct {
-	logger           *logrus.Entry
-	store            brtypes.SnapStore
-	k8sClientset     client.Client
-	encryptionConfig *encryptor.EncryptionConfig
+	logger       *logrus.Entry
+	store        brtypes.SnapStore
+	k8sClientset client.Client
+	keyring      *encryptor.Keyring
 }
 
 // NewCompactor creates compactor
-func NewCompactor(store brtypes.SnapStore, logger *logrus.Entry, clientSet client.Client, encryptionConfig *encryptor.EncryptionConfig) *Compactor {
+func NewCompactor(store brtypes.SnapStore, logger *logrus.Entry, clientSet client.Client, keyring *encryptor.Keyring) *Compactor {
 	return &Compactor{
-		logger:           logger,
-		store:            store,
-		k8sClientset:     clientSet,
-		encryptionConfig: encryptionConfig,
+		logger:       logger,
+		store:        store,
+		k8sClientset: clientSet,
+		keyring:      keyring,
 	}
 }
 
@@ -165,7 +165,7 @@ func (cp *Compactor) Compact(ctx context.Context, opts *brtypes.CompactOptions) 
 	isFinal := compactorRestoreOptions.BaseSnapshot.IsFinal
 
 	cc := &compressor.CompressionConfig{Enabled: isCompressed, CompressionPolicy: compressionPolicy}
-	snapshot, err := etcdutil.TakeAndSaveFullSnapshot(snapshotReqCtx, clientMaintenance, cp.store, opts.TempDir, etcdRevision, cc, cp.encryptionConfig, suffix, isFinal, cp.logger)
+	snapshot, err := etcdutil.TakeAndSaveFullSnapshot(snapshotReqCtx, clientMaintenance, cp.store, opts.TempDir, etcdRevision, cc, cp.keyring, suffix, isFinal, cp.logger)
 	if err != nil {
 		return nil, err
 	}

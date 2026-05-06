@@ -32,7 +32,7 @@ func NewKeyringTransformer(keyring *Keyring) (*KeyringTransformer, error) {
 	if keyring == nil {
 		return nil, fmt.Errorf("keyring cannot be nil")
 	}
-	if keyring.Size() == 0 {
+	if len(keyring.Keys) == 0 {
 		return nil, ErrNoKeysInKeyring
 	}
 	return &KeyringTransformer{keyring: keyring}, nil
@@ -41,20 +41,20 @@ func NewKeyringTransformer(keyring *Keyring) (*KeyringTransformer, error) {
 // TransformToStorage returns a reader that encrypts data using the latest key (by timestamp),
 // embedding the key ID in the output stream.
 func (kt *KeyringTransformer) TransformToStorage(r io.ReadCloser) (io.ReadCloser, error) {
-	latestKey, err := kt.keyring.GetLatestKey()
-	if err != nil {
-		return nil, fmt.Errorf("failed to get latest key: %w", err)
+	if !kt.keyring.Enabled() {
+		return r, nil
 	}
+	keyID := kt.keyring.PrimaryKeyID
+	latestKey := kt.keyring.Keys[keyID].Key
 
-	keyID := kt.keyring.GetLatestKeyID()
-	if len(keyID) == 0 {
-		return nil, fmt.Errorf("latest key ID cannot be empty")
-	}
 	if len(keyID) > MaxKeyIDLength {
 		return nil, fmt.Errorf("key ID length %d exceeds maximum %d", len(keyID), MaxKeyIDLength)
 	}
-
-	block, err := aes.NewCipher(latestKey[:])
+	keyBytes, err := ParseHexKey(latestKey)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse latest key: %w", err)
+	}
+	block, err := aes.NewCipher(keyBytes[:])
 	if err != nil {
 		return nil, fmt.Errorf("failed to create AES cipher: %w", err)
 	}
@@ -118,13 +118,18 @@ func (kt *KeyringTransformer) TransformFromStorage(r io.ReadCloser) (io.ReadClos
 	keyID := string(keyIDBuf)
 
 	// Look up the key in the keyring
-	key, ok := kt.keyring.GetKey(keyID)
+	key, ok := kt.keyring.Keys[keyID]
 	if !ok {
 		return nil, fmt.Errorf("%w: %s", ErrKeyNotFound, keyID)
 	}
 
+	keyBytes, err := ParseHexKey(key.Key)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse key: %w", err)
+	}
+
 	// Create the cipher for this key
-	block, err := aes.NewCipher(key[:])
+	block, err := aes.NewCipher(keyBytes[:])
 	if err != nil {
 		return nil, fmt.Errorf("failed to create AES cipher: %w", err)
 	}
@@ -148,9 +153,9 @@ func (kt *KeyringTransformer) TransformFromStorage(r io.ReadCloser) (io.ReadClos
 	}, nil
 }
 
-// DecryptWithKeyring decrypts data encrypted with the keyring format.
-// Reads the key ID from the header and looks up the corresponding key.
-func DecryptWithKeyring(r io.ReadCloser, keyring *Keyring) (io.ReadCloser, error) {
+// DecryptSnapshot decrypts a snapshot using the provided EncryptionConfiguration.
+// Reads the key ID from the encrypted data header and uses the corresponding key.
+func DecryptSnapshot(r io.ReadCloser, keyring *Keyring) (io.ReadCloser, error) {
 	kt, err := NewKeyringTransformer(keyring)
 	if err != nil {
 		return nil, err
@@ -158,34 +163,16 @@ func DecryptWithKeyring(r io.ReadCloser, keyring *Keyring) (io.ReadCloser, error
 	return kt.TransformFromStorage(r)
 }
 
-// DecryptSnapshot decrypts a snapshot using the provided EncryptionConfig.
-// Reads the key ID from the encrypted data header and uses the corresponding key.
-func DecryptSnapshot(r io.ReadCloser, config *EncryptionConfig) (io.ReadCloser, error) {
-	if config == nil || !config.Enabled() {
-		return r, nil
-	}
-
-	keyring := config.GetKeyring()
-	if keyring == nil {
-		return nil, fmt.Errorf("keyring not loaded; call LoadKeyring() first")
-	}
-	return DecryptWithKeyring(r, keyring)
-}
-
-// EncryptSnapshot encrypts a snapshot using the provided EncryptionConfig.
+// EncryptSnapshot encrypts a snapshot using the provided EncryptionConfiguration.
 // Uses the latest key (by timestamp) and embeds the key ID in the output.
-func EncryptSnapshot(r io.ReadCloser, config *EncryptionConfig) (io.ReadCloser, error) {
-	if config == nil || !config.Enabled() {
-		return r, nil
+func EncryptSnapshot(r io.ReadCloser, keyring *Keyring) (io.ReadCloser, error) {
+	if keyring == nil {
+		return r, fmt.Errorf("empty keyring")
 	}
 
-	keyring := config.GetKeyring()
-	if keyring == nil {
-		return nil, fmt.Errorf("keyring not loaded; call LoadKeyring() first")
-	}
 	kt, err := NewKeyringTransformer(keyring)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create keyring transformer: %w", err)
+		return nil, fmt.Errorf("failed to build keyring: %w", err)
 	}
 	return kt.TransformToStorage(r)
 }

@@ -30,7 +30,10 @@ func BuildRestoreOptionsAndStore(opts *restorerOptions) (*brtypes.RestoreOptions
 		return nil, nil, err
 	}
 
-	opts.complete()
+	if err := opts.complete(); err != nil {
+		logger.Fatalf("failed to complete the options: %v", err)
+		return nil, nil, err
+	}
 
 	clusterUrlsMap, err := types.NewURLsMap(opts.restorationConfig.InitialCluster)
 	if err != nil {
@@ -59,11 +62,11 @@ func BuildRestoreOptionsAndStore(opts *restorerOptions) (*brtypes.RestoreOptions
 	}
 
 	return &brtypes.RestoreOptions{
-		Config:           opts.restorationConfig,
-		BaseSnapshot:     baseSnap,
-		DeltaSnapList:    deltaSnapList,
-		ClusterURLs:      clusterUrlsMap,
-		PeerURLs:         peerUrls,
-		EncryptionConfig: opts.encryptionConfig,
+		Config:        opts.restorationConfig,
+		BaseSnapshot:  baseSnap,
+		DeltaSnapList: deltaSnapList,
+		ClusterURLs:   clusterUrlsMap,
+		PeerURLs:      peerUrls,
+		Keyring:       opts.keyring,
 	}, store, nil
 }

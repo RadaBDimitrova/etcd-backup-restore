@@ -31,7 +31,10 @@ func NewServerCommand(ctx context.Context) *cobra.Command {
 				return
 			}
 
-			opts.complete()
+			if err := opts.complete(); err != nil {
+				opts.Logger.Fatalf("failed to complete the options: %v", err)
+				return
+			}
 
 			optsJSON, err := yaml.Marshal(opts.Config)
 			if err != nil {

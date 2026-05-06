@@ -281,7 +281,7 @@ func GetEtcdEndPointsSorted(ctx context.Context, clientMaintenance client.Mainte
 //  3. compress the full snapshot(if compression is enabled)
 //  4. encrypt the full snapshot(if encryption is enabled)
 //  5. finally, save the full snapshot to object store(if configured).
-func TakeAndSaveFullSnapshot(ctx context.Context, client client.MaintenanceCloser, store brtypes.SnapStore, tempDir string, lastRevision int64, cc *compressor.CompressionConfig, ec *encryptor.EncryptionConfig, suffix string, isFinal bool, logger *logrus.Entry) (*brtypes.Snapshot, error) {
+func TakeAndSaveFullSnapshot(ctx context.Context, client client.MaintenanceCloser, store brtypes.SnapStore, tempDir string, lastRevision int64, cc *compressor.CompressionConfig, keyring *encryptor.Keyring, suffix string, isFinal bool, logger *logrus.Entry) (*brtypes.Snapshot, error) {
 	startTime := time.Now()
 	rc, err := client.Snapshot(ctx)
 	if err != nil {
@@ -329,8 +329,8 @@ func TakeAndSaveFullSnapshot(ctx context.Context, client client.MaintenanceClose
 	logger.Infof("Successfully opened snapshot reader on etcd")
 
 	// encrypt snapshot data if encryption is enabled.
-	if ec.Enabled() {
-		snapshotData, err = encryptor.EncryptSnapshot(snapshotData, ec)
+	if keyring.Enabled() {
+		snapshotData, err = encryptor.EncryptSnapshot(snapshotData, keyring)
 		if err != nil {
 			return nil, fmt.Errorf("failed to encrypt snapshot data: %v", err)
 		}

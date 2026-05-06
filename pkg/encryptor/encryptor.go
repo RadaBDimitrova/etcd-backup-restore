@@ -208,3 +208,24 @@ func (r *decryptingReader) Read(p []byte) (int, error) {
 func (r *decryptingReader) Close() error {
 	return r.src.Close()
 }
+
+// IsSnapshotEncrypted is helpful in determining whether the snapshot is encrypted or not.
+// it will return boolean, encryptionPolicy corresponding to encryptionSuffix and error.
+func IsSnapshotEncrypted(encryptionSuffix string) (bool, string, error) {
+
+	switch encryptionSuffix {
+	case "aesgcm":
+		return true, "aesgcm", nil
+
+	case "aescbc":
+		return true, "aescbc", nil
+
+	case "":
+		return false, "", nil
+
+	// actually unreachable but just to be on safe side:
+	// for unsupported Encryption provider return the error
+	default:
+		return false, "", fmt.Errorf("unsupported Encryption provider")
+	}
+}

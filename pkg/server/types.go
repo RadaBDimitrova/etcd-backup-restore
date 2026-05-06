@@ -25,7 +25,8 @@ type BackupRestoreComponentConfig struct {
 	SnapstoreConfig          *brtypes.SnapstoreConfig          `json:"snapstoreConfig,omitempty"`
 	SecondarySnapstoreConfig *brtypes.SecondarySnapstoreConfig `json:"secondarySnapstoreConfig,omitempty"`
 	CompressionConfig        *compressor.CompressionConfig     `json:"compressionConfig,omitempty"`
-	EncryptionConfig         *encryptor.EncryptionConfig       `json:"encryptionConfig,omitempty"`
+	Keyring                  *encryptor.Keyring                `json:"keyring,omitempty"`
+	EncryptionConfigFile     string                            `json:"encryptionConfigFile,omitempty"`
 	RestorationConfig        *brtypes.RestorationConfig        `json:"restorationConfig,omitempty"`
 	HealthConfig             *brtypes.HealthConfig             `json:"healthConfig,omitempty"`
 	LeaderElectionConfig     *brtypes.Config                   `json:"leaderElectionConfig,omitempty"`

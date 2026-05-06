@@ -46,8 +46,8 @@ type RestoreOptions struct {
 	DeltaSnapList    SnapList
 	// OriginalClusterSize indicates the actual cluster size from the ETCD config
 	OriginalClusterSize int
-	// EncryptionConfig holds the encryption configuration for decrypting snapshots
-	EncryptionConfig *encryptor.EncryptionConfig
+	// Keyring holds the encryption keyring for decrypting snapshots
+	Keyring *encryptor.Keyring
 }
 
 // RestorationConfig holds the restoration configuration.
@@ -213,10 +213,8 @@ func (in *RestoreOptions) DeepCopyInto(out *RestoreOptions) {
 	if in.NewClientFactory != nil {
 		out.NewClientFactory = DeepCopyNewClientFactory(in.NewClientFactory)
 	}
-	if in.EncryptionConfig != nil {
-		out.EncryptionConfig = &encryptor.EncryptionConfig{
-			KeyringFile: in.EncryptionConfig.KeyringFile,
-		}
+	if in.Keyring != nil {
+		out.Keyring = DeepCopyKeyring(in.Keyring)
 	}
 }
 
@@ -267,5 +265,19 @@ func (in *RestoreOptions) DeepCopy() *RestoreOptions {
 
 	out := new(RestoreOptions)
 	in.DeepCopyInto(out)
+	return out
+}
+
+// DeepCopyKeyring returns a deep copy of the keyring.
+func DeepCopyKeyring(in *encryptor.Keyring) *encryptor.Keyring {
+	if in == nil {
+		return nil
+	}
+	out := new(encryptor.Keyring)
+	out.Keys = make(map[string]encryptor.KeyEntry)
+	for k, v := range in.Keys {
+		out.Keys[k] = v
+	}
+	out.PrimaryKeyID = in.PrimaryKeyID
 	return out
 }

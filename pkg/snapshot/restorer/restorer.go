@@ -45,10 +45,10 @@ const (
 
 // Restorer is a struct for etcd data directory restorer
 type Restorer struct {
-	logger           *logrus.Entry
-	zapLogger        *zap.Logger
-	store            brtypes.SnapStore
-	encryptionConfig *encryptor.EncryptionConfig
+	logger    *logrus.Entry
+	zapLogger *zap.Logger
+	store     brtypes.SnapStore
+	keyring   *encryptor.Keyring
 }
 
 // NewRestorer returns the restorer object.
@@ -78,7 +78,7 @@ func (r *Restorer) RestoreAndStopEtcd(ro brtypes.RestoreOptions, m member.Contro
 // Restore restores the etcd data directory as per specified restore options but returns the ETCD server that it statrted.
 func (r *Restorer) Restore(ro brtypes.RestoreOptions, m member.Control) (*miscellaneous.EmbeddedEtcd, error) {
 	// Store encryption config for use when reading snapshots
-	r.encryptionConfig = ro.EncryptionConfig
+	r.keyring = ro.Keyring
 
 	r.logger.Infof("Creating temporary directory %s for persisting full and delta snapshots locally.", ro.Config.TempSnapshotsDir)
 	err := os.MkdirAll(ro.Config.TempSnapshotsDir, 0700)
@@ -159,9 +159,13 @@ func (r *Restorer) restoreFromBaseSnapshot(ro brtypes.RestoreOptions) error {
 		}
 	}()
 
-	// Decrypt the snapshot if encryption is enabled
-	if ro.EncryptionConfig != nil && ro.EncryptionConfig.Enabled() {
-		rc, err = encryptor.DecryptSnapshot(rc, ro.EncryptionConfig)
+	// Decrypt the snapshot if it's encrypted
+	isEncrypted, _, err := encryptor.IsSnapshotEncrypted(ro.BaseSnapshot.EncryptionSuffix)
+	if err != nil {
+		return fmt.Errorf("failed to determine whether the snapshot is encrypted or not: %w", err)
+	}
+	if isEncrypted && ro.Keyring != nil {
+		rc, err = encryptor.DecryptSnapshot(rc, ro.Keyring)
 		if err != nil {
 			return fmt.Errorf("failed to decrypt base snapshot: %w", err)
 		}
@@ -632,14 +636,17 @@ func getNormalizedSnapshotReadCloser(rc io.ReadCloser, snap *brtypes.Snapshot) (
 func (r *Restorer) readSnapshotContentsFromReadCloser(rc io.ReadCloser, snap *brtypes.Snapshot) ([]byte, error) {
 	startTime := time.Now()
 
-	// Decrypt the snapshot if encryption is enabled
-	if r.encryptionConfig != nil && r.encryptionConfig.Enabled() {
-		var err error
-		rc, err = encryptor.DecryptSnapshot(rc, r.encryptionConfig)
+	// Decrypt the snapshot if it's encrypted
+	isEncrypted, _, err := encryptor.IsSnapshotEncrypted(snap.EncryptionSuffix)
+	if err != nil {
+		return nil, fmt.Errorf("failed to determine whether the snapshot is encrypted or not: %w", err)
+	}
+	if isEncrypted && r.keyring != nil {
+		rc, err = encryptor.DecryptSnapshot(rc, r.keyring)
 		if err != nil {
-			return nil, fmt.Errorf("failed to decrypt delta snapshot %s: %v", snap.SnapName, err)
+			return nil, fmt.Errorf("failed to decrypt base snapshot: %w", err)
 		}
-		r.logger.Debugf("Successfully decrypted delta snapshot %s", snap.SnapName)
+		r.logger.Info("Successfully decrypted base snapshot data.")
 	}
 
 	rc, wasCompressed, compressionPolicy, err := getNormalizedSnapshotReadCloser(rc, snap)

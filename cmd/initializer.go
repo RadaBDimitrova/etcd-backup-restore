@@ -35,7 +35,10 @@ func NewInitializeCommand(_ context.Context) *cobra.Command {
 				return
 			}
 
-			opts.complete()
+			if err := opts.complete(); err != nil {
+				logger.Fatalf("failed to complete the options: %v", err)
+				return
+			}
 
 			clusterUrlsMap, err := types.NewURLsMap(opts.restorerOptions.restorationConfig.InitialCluster)
 			if err != nil {
@@ -58,10 +61,10 @@ func NewInitializeCommand(_ context.Context) *cobra.Command {
 			}
 
 			restoreOptions := &brtypes.RestoreOptions{
-				Config:           opts.restorerOptions.restorationConfig,
-				ClusterURLs:      clusterUrlsMap,
-				PeerURLs:         peerUrls,
-				EncryptionConfig: opts.restorerOptions.encryptionConfig,
+				Config:      opts.restorerOptions.restorationConfig,
+				ClusterURLs: clusterUrlsMap,
+				PeerURLs:    peerUrls,
+				Keyring:     opts.restorerOptions.keyring,
 			}
 
 			etcdInitializer, err := initializer.NewInitializer(restoreOptions, opts.restorerOptions.snapstoreConfig, opts.etcdConnectionConfig, logger)
