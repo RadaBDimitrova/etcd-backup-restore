@@ -8,6 +8,7 @@ import (
 	"crypto/aes"
 	"crypto/cipher"
 	"crypto/rand"
+	"encoding/base64"
 	"fmt"
 	"io"
 )
@@ -50,10 +51,12 @@ func (kt *KeyringTransformer) TransformToStorage(r io.ReadCloser) (io.ReadCloser
 	if len(keyID) > MaxKeyIDLength {
 		return nil, fmt.Errorf("key ID length %d exceeds maximum %d", len(keyID), MaxKeyIDLength)
 	}
-	keyBytes, err := ParseHexKey(latestKey)
+
+	keyBytes, err := base64.RawStdEncoding.DecodeString(latestKey)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse latest key: %w", err)
 	}
+
 	block, err := aes.NewCipher(keyBytes[:])
 	if err != nil {
 		return nil, fmt.Errorf("failed to create AES cipher: %w", err)
@@ -123,7 +126,7 @@ func (kt *KeyringTransformer) TransformFromStorage(r io.ReadCloser) (io.ReadClos
 		return nil, fmt.Errorf("%w: %s", ErrKeyNotFound, keyID)
 	}
 
-	keyBytes, err := ParseHexKey(key.Key)
+	keyBytes, err := base64.RawStdEncoding.DecodeString(key.Key)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse key: %w", err)
 	}

@@ -37,7 +37,7 @@ require (
 )
 
 require (
-	github.com/gardener/etcd-druid/api v0.0.0-00010101000000-000000000000
+	github.com/gardener/etcd-druid/api v0.36.3
 	go.etcd.io/bbolt v1.4.2
 	go.etcd.io/etcd/api/v3 v3.6.4
 	go.etcd.io/etcd/client/pkg/v3 v3.6.4
@@ -234,6 +234,13 @@ require (
 replace go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc v0.63.0 => go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc v0.46.0
 
 replace (
-	github.com/gardener/etcd-druid/api => github.com/Gerrit91/etcd-druid/api v0.0.0-20260506065842-ed9e3046f11c
+	github.com/gardener/etcd-druid/api => github.com/Gerrit91/etcd-druid/api v0.0.0-20260506160737-f35624f3d220
+	github.com/onsi/gomega => github.com/onsi/gomega v1.38.2
+	go.etcd.io/etcd/api/v3 => go.etcd.io/etcd/api/v3 v3.5.27
+	go.etcd.io/etcd/client/pkg/v3 => go.etcd.io/etcd/client/pkg/v3 v3.5.27
+	go.etcd.io/etcd/client/v3 => go.etcd.io/etcd/client/v3 v3.5.27
+	go.etcd.io/etcd/etcdutl/v3 => go.etcd.io/etcd/etcdutl/v3 v3.5.27
+	go.etcd.io/etcd/pkg/v3 => go.etcd.io/etcd/pkg/v3 v3.5.27
+	go.etcd.io/etcd/raft/v3 => go.etcd.io/etcd/raft/v3 v3.5.27
 	go.etcd.io/etcd/server/v3 => go.etcd.io/etcd/server/v3 v3.5.27
 )

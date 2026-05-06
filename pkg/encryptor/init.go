@@ -9,13 +9,17 @@ import (
 	"crypto/aes"
 	"crypto/cipher"
 	"crypto/rand"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io"
 	"os"
 	"time"
 
+	"sigs.k8s.io/yaml"
+
 	druidconfigv1alpha1 "github.com/gardener/etcd-druid/api/config/v1alpha1"
+	druidconfigv1alpha1validation "github.com/gardener/etcd-druid/api/config/v1alpha1/validation"
 )
 
 // FetchKeyringFunc fetches the encrypted keyring data from the store.
@@ -34,7 +38,7 @@ func LoadEncryptionConfigFromFile(configFile string) (*druidconfigv1alpha1.Encry
 	}
 
 	config := &druidconfigv1alpha1.EncryptionConfiguration{}
-	if err := json.Unmarshal(data, config); err != nil {
+	if err := yaml.Unmarshal(data, config); err != nil {
 		return nil, fmt.Errorf("failed to parse encryption config file %s: %w", configFile, err)
 	}
 
@@ -47,24 +51,20 @@ func Validate(c *druidconfigv1alpha1.EncryptionConfiguration) error {
 		return nil
 	}
 
-	// Validate that keys are present and valid
-	if c.AesGcmProvider != nil {
-		for _, entry := range c.AesGcmProvider.Keys {
-			if entry.Name == "" {
-				return fmt.Errorf("keyring entry missing required 'name' field")
-			}
-			if entry.Secret == "" {
-				return fmt.Errorf("keyring entry '%s' missing required 'secret' field", entry.Name)
-			}
-			if _, err := ParseHexKey(entry.Secret); err != nil {
-				return fmt.Errorf("invalid key for entry '%s': %w", entry.Name, err)
-			}
-		}
+	if errList := druidconfigv1alpha1validation.ValidateEncryptionConfiguration(c); len(errList) > 0 {
+		return fmt.Errorf("provided encryption configuration is not valid: %w", errList.ToAggregate())
 	}
 
-	// AesCbc is not supported
-	if c.AesCbcProvider != nil && len(c.AesCbcProvider.Keys) > 0 {
-		return fmt.Errorf("AES-CBC provider is not supported, use AES-GCM instead")
+	for i, provider := range c.Providers {
+		if provider.AesGcmProvider != nil {
+			continue
+		}
+
+		if provider.AesCbcProvider != nil {
+			return fmt.Errorf("provider not yet supported: aescbc")
+		}
+
+		return fmt.Errorf("unknown provider at index %d", i)
 	}
 
 	return nil
@@ -73,27 +73,37 @@ func Validate(c *druidconfigv1alpha1.EncryptionConfiguration) error {
 // BuildKeyring builds a Keyring from the EncryptionConfiguration.
 // The first key in the list is considered the latest (primary) key for encryption.
 func BuildKeyring(c *druidconfigv1alpha1.EncryptionConfiguration) (*Keyring, error) {
-	keyring := NewKeyring()
+	var (
+		keyring = NewKeyring()
+		first   string
+	)
+
 	if Enabled(c) {
-		for i := len(c.AesGcmProvider.Keys) - 1; i >= 0; i-- {
-			entry := c.AesGcmProvider.Keys[i]
-			if entry.Name == "" {
-				return nil, fmt.Errorf("keyring entry missing required 'name' field")
+		for _, provider := range c.Providers {
+			if provider.AesGcmProvider == nil {
+				continue
 			}
-			if entry.Secret == "" {
-				return nil, fmt.Errorf("keyring entry '%s' missing required 'secret' field", entry.Name)
-			}
-			keyring.Keys[entry.Name] = KeyEntry{
-				ID:        entry.Name,
-				Timestamp: time.Now(),
-				Key:       entry.Secret,
+
+			for _, key := range provider.AesGcmProvider.Keys {
+				secret, err := base64.RawStdEncoding.DecodeString(string(key.Secret))
+				if err != nil {
+					return nil, fmt.Errorf("error decoding secret key: %w", err)
+				}
+
+				if first == "" {
+					first = key.Name
+				}
+
+				keyring.Keys[key.Name] = KeyEntry{
+					ID:        key.Name,
+					Timestamp: time.Now(),
+					Key:       string(secret),
+				}
 			}
 		}
-	}
 
-	// Set the first key in the list as the latest (primary) key
-	if Enabled(c) && len(c.AesGcmProvider.Keys) > 0 {
-		keyring.PrimaryKeyID = c.AesGcmProvider.Keys[0].Name
+		// Set the first key in the list as the latest (primary) key
+		keyring.PrimaryKeyID = first
 	}
 
 	return keyring, nil
@@ -181,7 +191,7 @@ func fetchKeyringFromStore(fetchFn FetchKeyringFunc, decryptionKeyring *Keyring)
 	}
 
 	// Parse the hex key
-	keyBytes, err := ParseHexKey(keyEntry.Key)
+	keyBytes, err := base64.RawStdEncoding.DecodeString(keyEntry.Key)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse key: %w", err)
 	}
@@ -223,7 +233,7 @@ func saveKeyringToStore(saveFn SaveKeyringFunc, keyring *Keyring) error {
 	}
 
 	// Parse the hex key
-	keyBytes, err := ParseHexKey(keyEntry.Key)
+	keyBytes, err := base64.RawStdEncoding.DecodeString(keyEntry.Key)
 	if err != nil {
 		return fmt.Errorf("failed to parse key: %w", err)
 	}

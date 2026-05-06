@@ -5,7 +5,6 @@
 package encryptor
 
 import (
-	"encoding/hex"
 	"sync"
 	"time"
 
@@ -80,20 +79,5 @@ func (kr *Keyring) Enabled() bool {
 
 // Enabled returns true if encryption is configured.
 func Enabled(c *druidconfigv1alpha1.EncryptionConfiguration) bool {
-	return c != nil && ((c.AesGcmProvider != nil && len(c.AesGcmProvider.Keys) > 0) ||
-		(c.AesCbcProvider != nil && len(c.AesCbcProvider.Keys) > 0))
-}
-
-// ParseHexKey parses a hex-encoded key string into a 32-byte key.
-func ParseHexKey(hexKey string) ([32]byte, error) {
-	var key [32]byte
-	decoded, err := hex.DecodeString(hexKey)
-	if err != nil {
-		return key, err
-	}
-	if len(decoded) != 32 {
-		return key, ErrInvalidKeyLength
-	}
-	copy(key[:], decoded)
-	return key, nil
+	return len(c.Providers) > 0
 }

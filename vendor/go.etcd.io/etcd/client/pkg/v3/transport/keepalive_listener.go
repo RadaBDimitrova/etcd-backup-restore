@@ -16,7 +16,6 @@ package transport
 
 import (
 	"crypto/tls"
-	"errors"
 	"fmt"
 	"net"
 	"time"
@@ -39,7 +38,7 @@ func NewKeepAliveListener(l net.Listener, scheme string, tlscfg *tls.Config) (ne
 
 	if scheme == "https" {
 		if tlscfg == nil {
-			return nil, errors.New("cannot listen on TLS for given listener: KeyFile and CertFile are not presented")
+			return nil, fmt.Errorf("cannot listen on TLS for given listener: KeyFile and CertFile are not presented")
 		}
 		return newTLSKeepaliveListener(kal, tlscfg), nil
 	}
@@ -96,17 +95,16 @@ type tlsKeepaliveListener struct {
 
 // Accept waits for and returns the next incoming TLS connection.
 // The returned connection c is a *tls.Conn.
-func (l *tlsKeepaliveListener) Accept() (net.Conn, error) {
-	c, err := l.Listener.Accept()
+func (l *tlsKeepaliveListener) Accept() (c net.Conn, err error) {
+	c, err = l.Listener.Accept()
 	if err != nil {
-		return nil, err
+		return
 	}
-
 	c = tls.Server(c, l.config)
 	return c, nil
 }
 
-// newTLSKeepaliveListener creates a Listener which accepts connections from an inner
+// NewListener creates a Listener which accepts connections from an inner
 // Listener and wraps each connection with Server.
 // The configuration config must be non-nil and must have
 // at least one certificate.
