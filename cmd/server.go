@@ -36,6 +36,12 @@ func NewServerCommand(ctx context.Context) *cobra.Command {
 				return
 			}
 
+			if opts.Config.Keyring != nil {
+				opts.Logger.Info("backup encryption is enabled!")
+			} else {
+				opts.Logger.Warn("backup encryption is not enabled and you should really consider your life choices!")
+			}
+
 			optsJSON, err := yaml.Marshal(opts.Config)
 			if err != nil {
 				opts.Logger.Fatalf("failed to print the options: %v", err)

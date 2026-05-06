@@ -33,6 +33,7 @@ func BuildKeyringFromFile(encryptionConfigFile string) (*encryptor.Keyring, erro
 	if err != nil {
 		return nil, fmt.Errorf("failed to load encryption config: %w", err)
 	}
+
 	keyring, err := encryptor.BuildKeyring(config)
 	if err != nil {
 		return nil, fmt.Errorf("failed to build keyring: %w", err)

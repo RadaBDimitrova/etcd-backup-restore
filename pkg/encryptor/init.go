@@ -78,33 +78,35 @@ func BuildKeyring(c *druidconfigv1alpha1.EncryptionConfiguration) (*Keyring, err
 		first   string
 	)
 
-	if Enabled(c) {
-		for _, provider := range c.Providers {
-			if provider.AesGcmProvider == nil {
-				continue
-			}
+	if !Enabled(c) {
+		return keyring, nil
+	}
 
-			for _, key := range provider.AesGcmProvider.Keys {
-				secret, err := base64.RawStdEncoding.DecodeString(string(key.Secret))
-				if err != nil {
-					return nil, fmt.Errorf("error decoding secret key: %w", err)
-				}
-
-				if first == "" {
-					first = key.Name
-				}
-
-				keyring.Keys[key.Name] = KeyEntry{
-					ID:        key.Name,
-					Timestamp: time.Now(),
-					Key:       string(secret),
-				}
-			}
+	for _, provider := range c.Providers {
+		if provider.AesGcmProvider == nil {
+			continue
 		}
 
-		// Set the first key in the list as the latest (primary) key
-		keyring.PrimaryKeyID = first
+		for _, key := range provider.AesGcmProvider.Keys {
+			secret, err := base64.RawStdEncoding.DecodeString(string(key.Secret))
+			if err != nil {
+				return nil, fmt.Errorf("error decoding secret key: %w", err)
+			}
+
+			if first == "" {
+				first = key.Name
+			}
+
+			keyring.Keys[key.Name] = KeyEntry{
+				ID:        key.Name,
+				Timestamp: time.Now(),
+				Key:       string(secret),
+			}
+		}
 	}
+
+	// Set the first key in the list as the latest (primary) key
+	keyring.PrimaryKeyID = first
 
 	return keyring, nil
 }
