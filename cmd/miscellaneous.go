@@ -9,6 +9,7 @@ import (
 	"runtime"
 
 	"github.com/gardener/etcd-backup-restore/pkg/miscellaneous"
+	"github.com/gardener/etcd-backup-restore/pkg/server"
 	"github.com/gardener/etcd-backup-restore/pkg/snapstore"
 	brtypes "github.com/gardener/etcd-backup-restore/pkg/types"
 	ver "github.com/gardener/etcd-backup-restore/pkg/version"
@@ -49,6 +50,9 @@ func BuildRestoreOptionsAndStore(opts *restorerOptions) (*brtypes.RestoreOptions
 	if err != nil {
 		logger.Fatalf("failed to create restore snapstore from configured storage provider: %v", err)
 	}
+
+	// Setup lazy keyring sync now that snapstore is available
+	server.SetupKeyringSync(opts.keyring, store, opts.snapstoreConfig.Prefix)
 
 	logger.Info("Finding latest set of snapshot to recover from...")
 	baseSnap, deltaSnapList, err := miscellaneous.GetLatestFullSnapshotAndDeltaSnapList(store)

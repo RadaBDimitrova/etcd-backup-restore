@@ -5,8 +5,10 @@
 package initializer
 
 import (
+	"bytes"
 	"context"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"time"
@@ -186,6 +188,28 @@ func (e *EtcdInitializer) restoreCorruptData() (bool, error) {
 		err = fmt.Errorf("failed to create snapstore from configured storage provider: %v", err)
 		return false, err
 	}
+
+	// Setup lazy keyring sync now that snapstore is available
+	if e.Config.RestoreOptions.Keyring != nil {
+		keyringSnap := brtypes.Snapshot{
+			Kind:     brtypes.SnapshotKindKeyring,
+			SnapName: "keyring.enc",
+			Prefix:   e.Config.SnapstoreConfig.Prefix,
+		}
+		fetchFn := func() ([]byte, error) {
+			rc, err := store.Fetch(keyringSnap)
+			if err != nil {
+				return nil, nil // Not found is OK
+			}
+			defer rc.Close()
+			return io.ReadAll(rc)
+		}
+		saveFn := func(data []byte) error {
+			return store.Save(keyringSnap, io.NopCloser(bytes.NewReader(data)))
+		}
+		e.Config.RestoreOptions.Keyring.SetSyncFuncs(fetchFn, saveFn)
+	}
+
 	logger.Info("Finding latest set of snapshot to recover from...")
 	baseSnap, deltaSnapList, err := miscellaneous.GetLatestFullSnapshotAndDeltaSnapList(store)
 	if err != nil {

@@ -232,6 +232,9 @@ func (b *BackupRestoreServer) runServer(ctx context.Context, restoreOpts *brtype
 					b.logger.Fatalf("failed to create snapstore from configured storage provider: %v", err)
 				}
 
+				// Setup lazy keyring sync now that snapstore is available
+				SetupKeyringSync(b.config.Keyring, ss, b.config.SnapstoreConfig.Prefix)
+
 				if b.config.SecondarySnapstoreConfig.BackupSyncEnabled {
 					backupGcStop = make(chan struct{})
 					b.logger.Infof("Starting periodic backup copier..")

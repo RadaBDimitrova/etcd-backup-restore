@@ -155,7 +155,9 @@ func (kt *KeyringTransformer) TransformFromStorage(r io.ReadCloser) (io.ReadClos
 
 // DecryptSnapshot decrypts a snapshot using the provided EncryptionConfiguration.
 // Reads the key ID from the encrypted data header and uses the corresponding key.
+// Syncs the keyring with the backup store on first call.
 func DecryptSnapshot(r io.ReadCloser, keyring *Keyring) (io.ReadCloser, error) {
+	keyring.SyncOnce()
 	kt, err := NewKeyringTransformer(keyring)
 	if err != nil {
 		return nil, err
@@ -165,10 +167,12 @@ func DecryptSnapshot(r io.ReadCloser, keyring *Keyring) (io.ReadCloser, error) {
 
 // EncryptSnapshot encrypts a snapshot using the provided EncryptionConfiguration.
 // Uses the latest key (by timestamp) and embeds the key ID in the output.
+// Syncs the keyring with the backup store on first call.
 func EncryptSnapshot(r io.ReadCloser, keyring *Keyring) (io.ReadCloser, error) {
 	if keyring == nil {
 		return r, fmt.Errorf("empty keyring")
 	}
+	keyring.SyncOnce()
 
 	kt, err := NewKeyringTransformer(keyring)
 	if err != nil {

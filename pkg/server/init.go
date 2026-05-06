@@ -5,7 +5,9 @@
 package server
 
 import (
+	"bytes"
 	"fmt"
+	"io"
 	"os"
 
 	"github.com/gardener/etcd-backup-restore/pkg/compressor"
@@ -17,6 +19,56 @@ import (
 	"github.com/robfig/cron/v3"
 	flag "github.com/spf13/pflag"
 )
+
+// BuildKeyringFromFile loads encryption config and builds a keyring.
+// If encryptionConfigFile is empty, returns nil.
+// Call keyring.SetSyncFuncs() later with the snapstore to enable lazy sync.
+func BuildKeyringFromFile(encryptionConfigFile string) (*encryptor.Keyring, error) {
+	if encryptionConfigFile == "" {
+		return nil, nil
+	}
+
+	// Load and build keyring from config file
+	config, err := encryptor.LoadEncryptionConfigFromFile(encryptionConfigFile)
+	if err != nil {
+		return nil, fmt.Errorf("failed to load encryption config: %w", err)
+	}
+	keyring, err := encryptor.BuildKeyring(config)
+	if err != nil {
+		return nil, fmt.Errorf("failed to build keyring: %w", err)
+	}
+
+	return keyring, nil
+}
+
+// SetupKeyringSync configures lazy sync functions on the keyring using the given snapstore.
+// The sync will happen automatically on first encrypt/decrypt operation.
+func SetupKeyringSync(keyring *encryptor.Keyring, store brtypes.SnapStore, prefix string) {
+	if keyring == nil || store == nil {
+		return
+	}
+
+	keyringSnap := brtypes.Snapshot{
+		Kind:     brtypes.SnapshotKindKeyring,
+		SnapName: "keyring.enc",
+		Prefix:   prefix,
+	}
+
+	fetchFn := func() ([]byte, error) {
+		rc, err := store.Fetch(keyringSnap)
+		if err != nil {
+			return nil, nil // Not found is OK
+		}
+		defer rc.Close()
+		return io.ReadAll(rc)
+	}
+
+	saveFn := func(data []byte) error {
+		return store.Save(keyringSnap, io.NopCloser(bytes.NewReader(data)))
+	}
+
+	keyring.SetSyncFuncs(fetchFn, saveFn)
+}
 
 // NewBackupRestoreComponentConfig returns the backup-restore component config.
 func NewBackupRestoreComponentConfig() *BackupRestoreComponentConfig {
@@ -99,18 +151,13 @@ func (c *BackupRestoreComponentConfig) Complete() error {
 	c.SnapstoreConfig.Complete()
 	c.SecondarySnapstoreConfig.Complete()
 
-	// Load encryption config from file and build keyring
-	if c.EncryptionConfigFile != "" {
-		config, err := encryptor.LoadEncryptionConfigFromFile(c.EncryptionConfigFile)
-		if err != nil {
-			return fmt.Errorf("failed to load encryption config: %w", err)
-		}
-		keyring, err := encryptor.BuildKeyring(config)
-		if err != nil {
-			return fmt.Errorf("failed to build keyring: %w", err)
-		}
-		c.Keyring = keyring
+	// Load encryption config and build keyring
+	// Sync will happen lazily on first encrypt/decrypt when snapstore is available
+	keyring, err := BuildKeyringFromFile(c.EncryptionConfigFile)
+	if err != nil {
+		return err
 	}
+	c.Keyring = keyring
 	return nil
 }
 

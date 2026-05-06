@@ -8,6 +8,7 @@ import (
 	"context"
 
 	"github.com/gardener/etcd-backup-restore/pkg/defragmentor"
+	"github.com/gardener/etcd-backup-restore/pkg/server"
 	"github.com/gardener/etcd-backup-restore/pkg/snapshot/snapshotter"
 	"github.com/gardener/etcd-backup-restore/pkg/snapstore"
 	brtypes "github.com/gardener/etcd-backup-restore/pkg/types"
@@ -45,6 +46,9 @@ storing snapshots on various cloud storage providers as well as local disk locat
 			if err != nil {
 				logger.Fatalf("Failed to create snapstore from configured storage provider: %v", err)
 			}
+
+			// Setup lazy keyring sync now that snapstore is available
+			server.SetupKeyringSync(opts.keyring, ss, opts.snapstoreConfig.Prefix)
 
 			ssr, err := snapshotter.NewSnapshotter(logger, opts.snapshotterConfig, ss, opts.etcdConnectionConfig, opts.compressionConfig, opts.keyring, brtypes.NewHealthConfig(), opts.snapstoreConfig)
 			if err != nil {

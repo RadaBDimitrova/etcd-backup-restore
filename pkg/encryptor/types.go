@@ -6,6 +6,7 @@ package encryptor
 
 import (
 	"encoding/hex"
+	"sync"
 	"time"
 
 	druidconfigv1alpha1 "github.com/gardener/etcd-druid/api/config/v1alpha1"
@@ -40,6 +41,11 @@ type Keyring struct {
 	Keys map[string]KeyEntry
 	// PrimaryKeyID is the ID of the key with the most recent timestamp (used for encryption)
 	PrimaryKeyID string
+
+	// Sync functions for lazy synchronization with backup store
+	fetchFn  FetchKeyringFunc
+	saveFn   SaveKeyringFunc
+	syncOnce sync.Once
 }
 
 // NewKeyring creates a new empty keyring.
@@ -47,6 +53,25 @@ func NewKeyring() *Keyring {
 	return &Keyring{
 		Keys: make(map[string]KeyEntry),
 	}
+}
+
+// SetSyncFuncs sets the functions used to sync the keyring with the backup store.
+// This enables lazy sync on first encrypt/decrypt operation.
+func (kr *Keyring) SetSyncFuncs(fetchFn FetchKeyringFunc, saveFn SaveKeyringFunc) {
+	kr.fetchFn = fetchFn
+	kr.saveFn = saveFn
+}
+
+// SyncOnce synchronizes the keyring with the backup store (only on first call).
+// Safe to call multiple times - sync only happens once.
+func (kr *Keyring) SyncOnce() {
+	kr.syncOnce.Do(func() {
+		if kr.fetchFn == nil || kr.saveFn == nil {
+			return
+		}
+		// Use the standalone sync function which modifies kr in place
+		SyncKeyringWithBackup(kr, kr.fetchFn, kr.saveFn)
+	})
 }
 
 func (kr *Keyring) Enabled() bool {

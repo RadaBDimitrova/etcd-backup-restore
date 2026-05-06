@@ -44,6 +44,8 @@ const (
 	SnapshotKindDelta = "Incr"
 	// SnapshotKindChunk is constant for chunk snapshot kind.
 	SnapshotKindChunk = "Chunk"
+	// SnapshotKindKeyring is constant for encrypted keyring snapshot kind.
+	SnapshotKindKeyring = "Keyring"
 
 	// AzureBlobStorageGlobalDomain is the default domain for azure blob storage service.
 	AzureBlobStorageGlobalDomain = "blob.core.windows.net"

@@ -193,17 +193,11 @@ func (c *restorerOptions) validate() error {
 // complete completes the config.
 func (c *restorerOptions) complete() error {
 	c.snapstoreConfig.Complete()
-	if c.encryptionConfigFile != "" {
-		config, err := encryptor.LoadEncryptionConfigFromFile(c.encryptionConfigFile)
-		if err != nil {
-			return err
-		}
-		keyring, err := encryptor.BuildKeyring(config)
-		if err != nil {
-			return err
-		}
-		c.keyring = keyring
+	keyring, err := server.BuildKeyringFromFile(c.encryptionConfigFile)
+	if err != nil {
+		return err
 	}
+	c.keyring = keyring
 	return nil
 }
 
@@ -287,17 +281,11 @@ func (c *snapshotterOptions) validate() error {
 // complete completes the config.
 func (c *snapshotterOptions) complete() error {
 	c.snapstoreConfig.Complete()
-	if c.encryptionConfigFile != "" {
-		config, err := encryptor.LoadEncryptionConfigFromFile(c.encryptionConfigFile)
-		if err != nil {
-			return err
-		}
-		keyring, err := encryptor.BuildKeyring(config)
-		if err != nil {
-			return err
-		}
-		c.keyring = keyring
+	keyring, err := server.BuildKeyringFromFile(c.encryptionConfigFile)
+	if err != nil {
+		return err
 	}
+	c.keyring = keyring
 	return nil
 }
 
