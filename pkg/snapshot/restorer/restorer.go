@@ -170,6 +170,8 @@ func (r *Restorer) restoreFromBaseSnapshot(ro brtypes.RestoreOptions) error {
 			return fmt.Errorf("failed to decrypt base snapshot: %w", err)
 		}
 		r.logger.Info("Successfully decrypted base snapshot data.")
+	} else if isEncrypted && ro.Keyring == nil {
+		return fmt.Errorf("snapshot is encrypted but no keyring provided for decryption")
 	}
 
 	// Decompress the snapshot if necessary

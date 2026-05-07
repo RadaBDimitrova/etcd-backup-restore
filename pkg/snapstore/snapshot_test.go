@@ -252,6 +252,51 @@ var _ = Describe("Snapshot", func() {
 					IsFinal:           true,
 				}))
 			})
+			It("correctly parses a snapshot name with an encryption suffix", func() {
+				snapPath := "v2/Full-00000000-00030009-1518427675.enc"
+				s, err := ParseSnapshot(snapPath)
+				Expect(err).ShouldNot(HaveOccurred())
+				Expect(s).To(Equal(&brtypes.Snapshot{
+					Kind:             brtypes.SnapshotKindFull,
+					StartRevision:    0,
+					LastRevision:     30009,
+					CreatedOn:        time.Unix(1518427675, 0).UTC(),
+					SnapName:         "Full-00000000-00030009-1518427675.enc",
+					Prefix:           "v2/",
+					EncryptionSuffix: ".enc",
+				}))
+			})
+			It("correctly parses a snapshot name with compression and encryption suffixes", func() {
+				snapPath := "v2/Full-00000000-00030009-1518427675.gz.enc"
+				s, err := ParseSnapshot(snapPath)
+				Expect(err).ShouldNot(HaveOccurred())
+				Expect(s).To(Equal(&brtypes.Snapshot{
+					Kind:              brtypes.SnapshotKindFull,
+					StartRevision:     0,
+					LastRevision:      30009,
+					CreatedOn:         time.Unix(1518427675, 0).UTC(),
+					SnapName:          "Full-00000000-00030009-1518427675.gz.enc",
+					Prefix:            "v2/",
+					CompressionSuffix: compressor.GzipCompressionExtension,
+					EncryptionSuffix:  ".enc",
+				}))
+			})
+			It("correctly parses a snapshot name with compression, encryption, and final suffixes", func() {
+				snapPath := "v2/Full-00000000-00030009-1518427675.gz.enc.final"
+				s, err := ParseSnapshot(snapPath)
+				Expect(err).ShouldNot(HaveOccurred())
+				Expect(s).To(Equal(&brtypes.Snapshot{
+					Kind:              brtypes.SnapshotKindFull,
+					StartRevision:     0,
+					LastRevision:      30009,
+					CreatedOn:         time.Unix(1518427675, 0).UTC(),
+					SnapName:          "Full-00000000-00030009-1518427675.gz.enc.final",
+					Prefix:            "v2/",
+					CompressionSuffix: compressor.GzipCompressionExtension,
+					EncryptionSuffix:  ".enc",
+					IsFinal:           true,
+				}))
+			})
 		})
 
 		Context("when number of separated tokens not equal to 4", func() {

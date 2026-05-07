@@ -114,15 +114,21 @@ func ParseSnapshot(snapPath string) (*brtypes.Snapshot, error) {
 		return nil, fmt.Errorf("last revision (%s) should be at least start revision(%s) ", tokens[2], tokens[1])
 	}
 
-	//parse creation time as well as parse the Snapshot compression suffix
+	//parse creation time as well as parse the Snapshot compression and encryption suffix
 	lastNameToken := strings.Split(tokens[3], "/")
 	timeWithSnapSuffix := strings.Split(lastNameToken[0], ".")
-	if len(timeWithSnapSuffix) >= 2 {
-		if "."+timeWithSnapSuffix[1] != brtypes.FinalSuffix {
-			s.CompressionSuffix = "." + timeWithSnapSuffix[1]
-		}
-		if "."+timeWithSnapSuffix[len(timeWithSnapSuffix)-1] == brtypes.FinalSuffix {
+
+	// Parse suffixes. Known suffixes in order: compression (.gz, .Z, .zlib), encryption (.enc), final (.final)
+	// The order in filename is: timestamp.compression.encryption.final
+	for i := 1; i < len(timeWithSnapSuffix); i++ {
+		suffix := "." + timeWithSnapSuffix[i]
+		switch suffix {
+		case brtypes.FinalSuffix:
 			s.IsFinal = true
+		case ".enc":
+			s.EncryptionSuffix = ".enc"
+		case ".gz", ".Z", ".zlib":
+			s.CompressionSuffix = suffix
 		}
 	}
 	unixTime, err := strconv.ParseInt(timeWithSnapSuffix[0], 10, 64)
