@@ -74,7 +74,7 @@ func (kr *Keyring) SyncOnce() {
 }
 
 func (kr *Keyring) Enabled() bool {
-	return len(kr.Keys) > 0 && kr.PrimaryKeyID != ""
+	return kr != nil && len(kr.Keys) > 0 && kr.PrimaryKeyID != ""
 }
 
 // Enabled returns true if encryption is configured.
