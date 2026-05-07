@@ -127,7 +127,7 @@ func NewSnapshotter(logger *logrus.Entry, config *brtypes.SnapshotterConfig, sto
 		metrics.LatestSnapshotTimestamp.With(prometheus.Labels{metrics.LabelKind: brtypes.SnapshotKindDelta}).Set(float64(prevSnapshot.CreatedOn.Unix()))
 	} else {
 		// creating dummy previous snapshot since fullSnap == nil
-		prevSnapshot = snapstore.NewSnapshot(brtypes.SnapshotKindFull, 0, 0, "", false)
+		prevSnapshot = snapstore.NewSnapshot(brtypes.SnapshotKindFull, 0, 0, "", "", false)
 	}
 
 	metrics.LatestSnapshotRevision.With(prometheus.Labels{metrics.LabelKind: prevSnapshot.Kind}).Set(float64(prevSnapshot.LastRevision))
@@ -362,13 +362,18 @@ func (ssr *Snapshotter) takeFullSnapshot(isFinal bool) (*brtypes.Snapshot, error
 			return nil, fmt.Errorf("failed to get compressionSuffix: %v", err)
 		}
 
+		encryptionSuffix, err := encryptor.GetEncryptionSuffix(ssr.keyring)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get encryption suffix: %v", err)
+		}
+
 		clientMaintenance, err := clientFactory.NewMaintenance()
 		if err != nil {
 			return nil, fmt.Errorf("failed to build etcd maintenance client")
 		}
 		defer clientMaintenance.Close()
 
-		s, err := etcdutil.TakeAndSaveFullSnapshot(ctx, clientMaintenance, ssr.store, ssr.snapstoreConfig.TempDir, lastRevision, ssr.compressionConfig, ssr.keyring, compressionSuffix, isFinal, ssr.logger)
+		s, err := etcdutil.TakeAndSaveFullSnapshot(ctx, clientMaintenance, ssr.store, ssr.snapstoreConfig.TempDir, lastRevision, ssr.compressionConfig, ssr.keyring, compressionSuffix, encryptionSuffix, isFinal, ssr.logger)
 		if err != nil {
 			return nil, err
 		}
@@ -470,7 +475,11 @@ func (ssr *Snapshotter) TakeDeltaSnapshot() (*brtypes.Snapshot, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to get compressionSuffix: %v", err)
 	}
-	snap := snapstore.NewSnapshot(brtypes.SnapshotKindDelta, ssr.PrevSnapshot.LastRevision+1, ssr.lastEventRevision, compressionSuffix, false)
+	encryptionSuffix, err := encryptor.GetEncryptionSuffix(ssr.keyring)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get encryption suffix: %v", err)
+	}
+	snap := snapstore.NewSnapshot(brtypes.SnapshotKindDelta, ssr.PrevSnapshot.LastRevision+1, ssr.lastEventRevision, compressionSuffix, encryptionSuffix, false)
 
 	// compute hash
 	hash := sha256.New()

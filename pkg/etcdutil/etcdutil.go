@@ -281,7 +281,7 @@ func GetEtcdEndPointsSorted(ctx context.Context, clientMaintenance client.Mainte
 //  3. compress the full snapshot(if compression is enabled)
 //  4. encrypt the full snapshot(if encryption is enabled)
 //  5. finally, save the full snapshot to object store(if configured).
-func TakeAndSaveFullSnapshot(ctx context.Context, client client.MaintenanceCloser, store brtypes.SnapStore, tempDir string, lastRevision int64, cc *compressor.CompressionConfig, keyring *encryptor.Keyring, suffix string, isFinal bool, logger *logrus.Entry) (*brtypes.Snapshot, error) {
+func TakeAndSaveFullSnapshot(ctx context.Context, client client.MaintenanceCloser, store brtypes.SnapStore, tempDir string, lastRevision int64, cc *compressor.CompressionConfig, keyring *encryptor.Keyring, suffix string, encryptionSuffix string, isFinal bool, logger *logrus.Entry) (*brtypes.Snapshot, error) {
 	startTime := time.Now()
 	rc, err := client.Snapshot(ctx)
 	if err != nil {
@@ -338,7 +338,7 @@ func TakeAndSaveFullSnapshot(ctx context.Context, client client.MaintenanceClose
 	}
 
 	// save the snapshot to the store.
-	snapshot, err := saveSnapshotToStore(store, snapshotData, startTime, brtypes.SnapshotKindFull, lastRevision, suffix, isFinal, logger)
+	snapshot, err := saveSnapshotToStore(store, snapshotData, startTime, brtypes.SnapshotKindFull, lastRevision, suffix, encryptionSuffix, isFinal, logger)
 	if err != nil {
 		return nil, err
 	}
@@ -420,8 +420,8 @@ func checkFullSnapshotIntegrity(snapshotData io.ReadCloser, snapTempDBFilePath s
 }
 
 // saveSnapshotToStore save the snapshot to object store
-func saveSnapshotToStore(store brtypes.SnapStore, rc io.ReadCloser, startTime time.Time, snapshotKind string, lastRevision int64, suffix string, isFinal bool, logger *logrus.Entry) (*brtypes.Snapshot, error) {
-	snapshot := snapstore.NewSnapshot(snapshotKind, 0, lastRevision, suffix, isFinal)
+func saveSnapshotToStore(store brtypes.SnapStore, rc io.ReadCloser, startTime time.Time, snapshotKind string, lastRevision int64, suffix string, encryptionSuffix string, isFinal bool, logger *logrus.Entry) (*brtypes.Snapshot, error) {
+	snapshot := snapstore.NewSnapshot(snapshotKind, 0, lastRevision, suffix, encryptionSuffix, isFinal)
 
 	// save the snapshot to object store
 	if err := store.Save(*snapshot, rc); err != nil {

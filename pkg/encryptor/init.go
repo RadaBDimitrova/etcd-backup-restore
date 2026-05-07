@@ -88,8 +88,9 @@ func BuildKeyring(c *druidconfigv1alpha1.EncryptionConfiguration) (*Keyring, err
 		}
 
 		for _, key := range provider.AesGcmProvider.Keys {
-			secret, err := base64.RawStdEncoding.DecodeString(string(key.Secret))
-			if err != nil {
+			// Validate that the secret is valid base64, but store it encoded
+			// (decoding happens at usage time)
+			if _, err := base64.RawStdEncoding.DecodeString(string(key.Secret)); err != nil {
 				return nil, fmt.Errorf("error decoding secret key: %w", err)
 			}
 
@@ -100,7 +101,7 @@ func BuildKeyring(c *druidconfigv1alpha1.EncryptionConfiguration) (*Keyring, err
 			keyring.Keys[key.Name] = KeyEntry{
 				ID:        key.Name,
 				Timestamp: time.Now(),
-				Key:       string(secret),
+				Key:       string(key.Secret), // Store base64-encoded
 			}
 		}
 	}

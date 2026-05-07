@@ -212,20 +212,24 @@ func (r *decryptingReader) Close() error {
 // IsSnapshotEncrypted is helpful in determining whether the snapshot is encrypted or not.
 // it will return boolean, encryptionPolicy corresponding to encryptionSuffix and error.
 func IsSnapshotEncrypted(encryptionSuffix string) (bool, string, error) {
-
-	switch encryptionSuffix {
-	case "aesgcm":
-		return true, "aesgcm", nil
-
-	case "aescbc":
-		return true, "aescbc", nil
-
-	case "":
+	if encryptionSuffix == "" {
 		return false, "", nil
-
-	// actually unreachable but just to be on safe side:
-	// for unsupported Encryption provider return the error
-	default:
-		return false, "", fmt.Errorf("unsupported Encryption provider")
 	}
+
+	// For now we have only one encryption policy, so we can directly map suffix to policy.
+	// In future, if we have multiple policies, we can maintain a mapping of suffix to policy.
+	if encryptionSuffix == ".enc" {
+		return true, "aesgcm", nil
+	}
+	return false, "", fmt.Errorf("unsupported encryption suffix: %s", encryptionSuffix)
+}
+
+// GetEncryptionSuffix returns the suffix for snapshot w.r.t Encryption Policy
+// if encryption is not enabled, it will simply return UnEncryptSnapshotExtension(empty string).
+func GetEncryptionSuffix(keyring *Keyring) (string, error) {
+	if keyring == nil || !keyring.Enabled() {
+		return "", nil
+	}
+
+	return ".enc", nil
 }

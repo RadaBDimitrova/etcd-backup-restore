@@ -46,13 +46,18 @@ func (kt *KeyringTransformer) TransformToStorage(r io.ReadCloser) (io.ReadCloser
 		return r, nil
 	}
 	keyID := kt.keyring.PrimaryKeyID
-	latestKey := kt.keyring.Keys[keyID].Key
+	latestKeyB64 := kt.keyring.Keys[keyID].Key
 
 	if len(keyID) > MaxKeyIDLength {
 		return nil, fmt.Errorf("key ID length %d exceeds maximum %d", len(keyID), MaxKeyIDLength)
 	}
 
-	block, err := aes.NewCipher([]byte(latestKey))
+	keyBytes, err := base64.RawStdEncoding.DecodeString(latestKeyB64)
+	if err != nil {
+		return nil, fmt.Errorf("failed to decode encryption key: %w", err)
+	}
+
+	block, err := aes.NewCipher(keyBytes)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create AES cipher: %w", err)
 	}

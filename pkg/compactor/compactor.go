@@ -162,10 +162,15 @@ func (cp *Compactor) Compact(ctx context.Context, opts *brtypes.CompactOptions) 
 		return nil, fmt.Errorf("unable to determine if snapshot is compressed: %v", compactorRestoreOptions.BaseSnapshot.CompressionSuffix)
 	}
 
+	encryptionSuffix, err := encryptor.GetEncryptionSuffix(cp.keyring)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get encryption suffix: %v", err)
+	}
+
 	isFinal := compactorRestoreOptions.BaseSnapshot.IsFinal
 
 	cc := &compressor.CompressionConfig{Enabled: isCompressed, CompressionPolicy: compressionPolicy}
-	snapshot, err := etcdutil.TakeAndSaveFullSnapshot(snapshotReqCtx, clientMaintenance, cp.store, opts.TempDir, etcdRevision, cc, cp.keyring, suffix, isFinal, cp.logger)
+	snapshot, err := etcdutil.TakeAndSaveFullSnapshot(snapshotReqCtx, clientMaintenance, cp.store, opts.TempDir, etcdRevision, cc, cp.keyring, suffix, encryptionSuffix, isFinal, cp.logger)
 	if err != nil {
 		return nil, err
 	}

@@ -17,13 +17,14 @@ import (
 )
 
 // NewSnapshot returns the snapshot object.
-func NewSnapshot(kind string, startRevision, lastRevision int64, compressionSuffix string, isFinal bool) *brtypes.Snapshot {
+func NewSnapshot(kind string, startRevision, lastRevision int64, compressionSuffix string, encryptionSuffix string, isFinal bool) *brtypes.Snapshot {
 	snap := &brtypes.Snapshot{
 		Kind:              kind,
 		StartRevision:     startRevision,
 		LastRevision:      lastRevision,
 		CreatedOn:         time.Now().UTC(),
 		CompressionSuffix: compressionSuffix,
+		EncryptionSuffix:  encryptionSuffix,
 		IsFinal:           isFinal,
 	}
 	snap.GenerateSnapshotName()

@@ -29,7 +29,8 @@ type KeyEntry struct {
 	ID string `yaml:"id" json:"id"`
 	// Timestamp indicates when this key was created/added
 	Timestamp time.Time `yaml:"timestamp" json:"timestamp"`
-	// Key is the hex-encoded 32-byte encryption key
+	// Key is the base64-encoded (RawStdEncoding) 32-byte encryption key.
+	// Stored encoded for JSON serializability; decoded at usage time.
 	Key string `yaml:"key" json:"key"`
 }
 
@@ -79,5 +80,5 @@ func (kr *Keyring) Enabled() bool {
 
 // Enabled returns true if encryption is configured.
 func Enabled(c *druidconfigv1alpha1.EncryptionConfiguration) bool {
-	return len(c.Providers) > 0
+	return c != nil && len(c.Providers) > 0
 }
